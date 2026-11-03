@@ -1,0 +1,41 @@
+Secure Offline Transcriber bundles the following third-party software. The full licence texts are in
+THIRD-PARTY-LICENSES.txt inside the portable package (written by build\build.py from each library).
+
+Component                     Licence                                 Source
+----------------------------  --------------------------------------  ---------------------------------------------
+Python 3.13 runtime           PSF License                             https://www.python.org/
+FFmpeg 9.0.2 (ffmpeg.exe)     GPL-3.0 (essentials build by gyan.dev,  https://ffmpeg.org/  https://www.gyan.dev/ffmpeg/
+                              unmodified; run as a separate program;
+                              see ffmpeg\SOURCE.txt in the package)
+Qt 6 / PySide6, shiboken6     LGPL-3.0 (used as shared libraries)     https://www.qt.io/  https://code.qt.io/
+faster-whisper                MIT                                     https://github.com/SYSTRAN/faster-whisper
+  Silero VAD (inside it)      MIT                                     https://github.com/snakers4/silero-vad
+CTranslate2                   MIT                                     https://github.com/OpenNMT/CTranslate2
+sherpa-onnx                   Apache-2.0                              https://github.com/k2-fsa/sherpa-onnx
+ONNX Runtime                  MIT                                     https://github.com/microsoft/onnxruntime
+tokenizers                    Apache-2.0                              https://github.com/huggingface/tokenizers
+huggingface_hub, hf-xet       Apache-2.0                              https://github.com/huggingface/huggingface_hub
+NumPy                         BSD-3-Clause (and bundled licences)     https://numpy.org/
+sounddevice                   MIT                                     https://github.com/spatialaudio/python-sounddevice
+  PortAudio                   MIT                                     http://www.portaudio.com/
+OpenCC (python reimplement.)  Apache-2.0                              https://github.com/yichen0831/opencc-python
+python-docx                   MIT                                     https://github.com/python-openxml/python-docx
+  lxml                        BSD-3-Clause                            https://lxml.de/
+pypdf                         BSD-3-Clause                            https://github.com/py-pdf/pypdf
+cffi, pycparser               MIT-0 / BSD-3-Clause                    https://cffi.readthedocs.io/
+protobuf, flatbuffers         BSD-3-Clause / Apache-2.0               https://protobuf.dev/  https://flatbuffers.dev/
+anyio, h11, httpx2,           MIT / BSD-3-Clause                      (dependencies of huggingface_hub)
+  httpcore2, idna, click
+filelock, fsspec, packaging,  MIT / BSD-3-Clause / Apache-2.0 /       (dependencies of huggingface_hub and others)
+  PyYAML, tqdm, truststore,   MPL-2.0 / PSF-2.0
+  typing_extensions
+
+The LGPL libraries are shipped as separate DLL/PYD files in python\Lib\site-packages and can be replaced by the
+user with compatible versions. Their source code is available at the addresses above.
+
+Speech models are NOT included. They are downloaded by the user from Hugging Face and keep their own licences:
+OpenAI Whisper and its CTranslate2 conversions (MIT), Distil-Whisper (MIT), SenseVoiceSmall by FunAudioLLM
+(FunASR Model Open Source License Agreement), Parakeet-TDT-0.6B-v3 by NVIDIA (CC-BY-4.0), Moonshine by Useful
+Sensors (MIT). The model manager shows each model's licence before it is downloaded.
+
+Screenshots on the project page use a sample from the LibriSpeech ASR corpus (V. Panayotov et al., CC BY 4.0).

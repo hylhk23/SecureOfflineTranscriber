@@ -1,0 +1,35 @@
+SECURE OFFLINE TRANSCRIBER 2.1 - THIRD-PARTY LICENCES
+=====================================================
+
+The Software uses the components below. Each is the property of its owners and is
+licensed under the terms that follow. Secure Offline Transcriber is not affiliated with or
+endorsed by OpenAI, Alibaba, NVIDIA, Useful Sensors or any other owner named here.
+
+PROGRAMS
+--------
+Python 3.13 embeddable package - Python Software Foundation License (python\LICENSE.txt).
+FFmpeg 9.0.2, essentials build by Gyan Doshi - GNU GPL version 3 (ffmpeg\LICENSE.txt);
+  run as a separate, unmodified program. Source: see ffmpeg\SOURCE.txt.
+PortAudio (inside sounddevice) - MIT licence.
+Qt 6 (inside PySide6) - GNU LGPL version 3. Qt's libraries are separate DLL files in
+  python\Lib\site-packages\PySide6 and may be replaced by the user with compatible builds;
+  Qt source code: https://download.qt.io/official_releases/qt/
+
+SPEECH MODELS (NOT INCLUDED; DOWNLOADED BY THE USER FROM HUGGING FACE)
+--------------------------------------------------------------------
+OpenAI Whisper (tiny, base, small, medium, large-v3, large-v3-turbo), CTranslate2
+  conversions by Systran / mobiuslabs - MIT licence. Copyright (c) 2022 OpenAI.
+Distil-Whisper large-v3.5 - MIT licence. Copyright Hugging Face.
+SenseVoiceSmall by FunAudioLLM (Alibaba Tongyi Lab), int8 ONNX conversion by the k2-fsa
+  sherpa-onnx project - FunASR Model Open Source License Agreement
+  (https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE).
+Parakeet-TDT-0.6B-v3 by NVIDIA, int8 ONNX conversion by the k2-fsa sherpa-onnx project -
+  Creative Commons Attribution 4.0 (CC-BY-4.0). Attribution: "Parakeet TDT 0.6B v3",
+  NVIDIA Corporation, https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3 ;
+  converted to ONNX int8 (changes made).
+Moonshine tiny and base by Useful Sensors, ONNX conversion by k2-fsa - MIT licence.
+Silero VAD (included inside faster-whisper) - MIT licence. Copyright (c) Silero Team.
+
+PYTHON LIBRARIES
+----------------
+The licence texts of every library in python\Lib\site-packages follow.

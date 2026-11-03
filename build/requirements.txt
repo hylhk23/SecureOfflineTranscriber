@@ -1,0 +1,11 @@
+# Secure Offline Transcriber 2.1 - libraries for the portable build (Windows x64, CPython 3.13)
+PySide6-Essentials==6.12.0
+numpy>=2.1,<3
+faster-whisper==1.2.1
+ctranslate2==4.8.3
+onnxruntime==1.29.0
+sherpa-onnx==2.0.1
+sounddevice==0.5.6
+opencc-python-reimplemented==0.1.7
+python-docx==1.2.0
+pypdf>=6.21,<7          # Names from documents: reading PDF agendas (pure Python)

@@ -1,0 +1,489 @@
+{
+ "app": "SecureOfflineTranscriber",
+ "format": 2,
+ "list_version": "2026.11.03",
+ "min_app_version": "2.1.1",
+ "description": "Models offered in Options > Transcription. Edit with build/tools/update-model-list.py; see MODEL-LIST.md.",
+ "recommended": {
+  "ram_gb": 12,
+  "below": [
+   "sensevoice-small-int8",
+   "whisper-small"
+  ],
+  "at_or_above": [
+   "sensevoice-small-int8",
+   "whisper-large-v3-turbo"
+  ]
+ },
+ "automatic": {
+  "en": [
+   "whisper-large-v3-turbo",
+   "parakeet-tdt-0.6b-v3-int8",
+   "whisper-small"
+  ],
+  "fr": [
+   "whisper-large-v3-turbo",
+   "parakeet-tdt-0.6b-v3-int8",
+   "whisper-small"
+  ],
+  "yue": [
+   "sensevoice-small-int8",
+   "whisper-large-v3",
+   "whisper-large-v3-turbo"
+  ],
+  "zh": [
+   "sensevoice-small-int8",
+   "whisper-large-v3-turbo",
+   "whisper-small"
+  ]
+ },
+ "models": [
+  {
+   "id": "sensevoice-small-int8",
+   "name": "SenseVoiceSmall int8",
+   "kind": "sensevoice",
+   "languages": [
+    "yue",
+    "zh",
+    "en"
+   ],
+   "repo": "csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17",
+   "revision": "2365baeacb507f821a0c8120fcee3d484dba7a07",
+   "license": "FunASR Model License",
+   "license_url": "https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE",
+   "offered": "Must",
+   "note": "Cantonese, Mandarin, English (no French)",
+   "max_piece": 15,
+   "size": 239549735,
+   "files": [
+    {
+     "name": "model.int8.onnx",
+     "size": 239233841,
+     "sha256": "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51"
+    },
+    {
+     "name": "tokens.txt",
+     "size": 315894,
+     "sha256": "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc"
+    }
+   ]
+  },
+  {
+   "id": "whisper-small",
+   "name": "Whisper small",
+   "kind": "whisper",
+   "languages": [
+    "en",
+    "fr",
+    "yue",
+    "zh"
+   ],
+   "repo": "Systran/faster-whisper-small",
+   "revision": "536b0662742c02347bc0e980a01041f333bce120",
+   "license": "MIT",
+   "license_url": "https://github.com/openai/whisper/blob/main/LICENSE",
+   "offered": "Must",
+   "note": "All four languages (Cantonese weak)",
+   "size": 486212372,
+   "files": [
+    {
+     "name": "config.json",
+     "size": 2370,
+     "sha256": "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828"
+    },
+    {
+     "name": "model.bin",
+     "size": 483546902,
+     "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671"
+    },
+    {
+     "name": "tokenizer.json",
+     "size": 2203239,
+     "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab"
+    },
+    {
+     "name": "vocabulary.txt",
+     "size": 459861,
+     "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913"
+    }
+   ]
+  },
+  {
+   "id": "whisper-large-v3-turbo",
+   "name": "Whisper large-v3-turbo",
+   "kind": "whisper",
+   "languages": [
+    "en",
+    "fr",
+    "yue",
+    "zh"
+   ],
+   "repo": "mobiuslabsgmbh/faster-whisper-large-v3-turbo",
+   "revision": "0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf",
+   "license": "MIT",
+   "license_url": "https://github.com/openai/whisper/blob/main/LICENSE",
+   "offered": "Must",
+   "note": "All four languages",
+   "size": 1621665983,
+   "files": [
+    {
+     "name": "config.json",
+     "size": 2263,
+     "sha256": "b0253ea6c0d3bea6b1e19e91a02acfd3b53f4467362efcb5a3e6b16c9b3a9b7e"
+    },
+    {
+     "name": "model.bin",
+     "size": 1617884929,
+     "sha256": "e76620f83d5f5b69efd3d87e3dc180c1bd21df9fbebacfd4335e5e1efcc018da"
+    },
+    {
+     "name": "tokenizer.json",
+     "size": 2710337,
+     "sha256": "297b13372ac43916285644fb9687add3cc62ee2a1adb60da3dc25cc94c1871fd"
+    },
+    {
+     "name": "vocabulary.json",
+     "size": 1068114,
+     "sha256": "c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1"
+    },
+    {
+     "name": "preprocessor_config.json",
+     "size": 340,
+     "sha256": "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711"
+    }
+   ]
+  },
+  {
+   "id": "whisper-large-v3",
+   "name": "Whisper large-v3",
+   "kind": "whisper",
+   "languages": [
+    "en",
+    "fr",
+    "yue",
+    "zh"
+   ],
+   "repo": "Systran/faster-whisper-large-v3",
+   "revision": "edaa852ec7e145841d8ffdb056a99866b5f0a478",
+   "license": "MIT",
+   "license_url": "https://github.com/openai/whisper/blob/main/LICENSE",
+   "offered": "Should",
+   "note": "Most accurate, slowest; best Whisper Cantonese",
+   "size": 3090835702,
+   "files": [
+    {
+     "name": "config.json",
+     "size": 2394,
+     "sha256": "a9306624f5ec14270a014b647e5c316b6e03a662c369758d1b90697a7b0655b9"
+    },
+    {
+     "name": "model.bin",
+     "size": 3087284237,
+     "sha256": "69f74147e3334731bc3a76048724833325d2ec74642fb52620eda87352e3d4f1"
+    },
+    {
+     "name": "tokenizer.json",
+     "size": 2480617,
+     "sha256": "6d8cbd7cd0d8d5815e478dac67b85a26bbe77c1f5e0c6d76d1ce2abc0e5f21ca"
+    },
+    {
+     "name": "vocabulary.json",
+     "size": 1068114,
+     "sha256": "c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1"
+    },
+    {
+     "name": "preprocessor_config.json",
+     "size": 340,
+     "sha256": "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711"
+    }
+   ]
+  },
+  {
+   "id": "parakeet-tdt-0.6b-v3-int8",
+   "name": "Parakeet-TDT-0.6B-v3 int8",
+   "kind": "parakeet",
+   "languages": [
+    "en",
+    "fr"
+   ],
+   "repo": "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
+   "revision": "2bda32ec70b097a55adaa07d9a7173915b43cc78",
+   "license": "CC-BY-4.0",
+   "license_url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3",
+   "offered": "Must",
+   "note": "Fast English and French (plus 23 other European languages)",
+   "max_piece": 15,
+   "size": 670478772,
+   "files": [
+    {
+     "name": "encoder.int8.onnx",
+     "size": 652184281,
+     "sha256": "acfc2b4456377e15d04f0243af540b7fe7c992f8d898d751cf134c3a55fd2247"
+    },
+    {
+     "name": "decoder.int8.onnx",
+     "size": 11845275,
+     "sha256": "179e50c43d1a9de79c8a24149a2f9bac6eb5981823f2a2ed88d655b24248db4e"
+    },
+    {
+     "name": "joiner.int8.onnx",
+     "size": 6355277,
+     "sha256": "3164c13fc2821009440d20fcb5fdc78bff28b4db2f8d0f0b329101719c0948b3"
+    },
+    {
+     "name": "tokens.txt",
+     "size": 93939,
+     "sha256": "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d"
+    }
+   ]
+  },
+  {
+   "id": "whisper-medium",
+   "name": "Whisper medium",
+   "kind": "whisper",
+   "languages": [
+    "en",
+    "fr",
+    "yue",
+    "zh"
+   ],
+   "repo": "Systran/faster-whisper-medium",
+   "revision": "08e178d48790749d25932bbc082711ddcfdfbc4f",
+   "license": "MIT",
+   "license_url": "https://github.com/openai/whisper/blob/main/LICENSE",
+   "offered": "Could",
+   "note": "Turbo is usually better at the same size",
+   "size": 1530571735,
+   "files": [
+    {
+     "name": "config.json",
+     "size": 2257,
+     "sha256": "3622a2ddc41ec0e0fd4e68c13c6830f03b90c38d89aaad184de02c8c642cf807"
+    },
+    {
+     "name": "model.bin",
+     "size": 1527906378,
+     "sha256": "9b45e1009dcc4ab601eff815b61d80e60ce3fd8c74c1a14f4a282258286b51ae"
+    },
+    {
+     "name": "tokenizer.json",
+     "size": 2203239,
+     "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab"
+    },
+    {
+     "name": "vocabulary.txt",
+     "size": 459861,
+     "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913"
+    }
+   ]
+  },
+  {
+   "id": "whisper-base",
+   "name": "Whisper base",
+   "kind": "whisper",
+   "languages": [
+    "en",
+    "fr",
+    "yue",
+    "zh"
+   ],
+   "repo": "Systran/faster-whisper-base",
+   "revision": "ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66",
+   "license": "MIT",
+   "license_url": "https://github.com/openai/whisper/blob/main/LICENSE",
+   "offered": "Could",
+   "note": "Very old PCs",
+   "size": 147882941,
+   "files": [
+    {
+     "name": "config.json",
+     "size": 2309,
+     "sha256": "56a6d8110d311f19c8f0471e562832c7527f146b567275bfca59fcf7c184da9a"
+    },
+    {
+     "name": "model.bin",
+     "size": 145217532,
+     "sha256": "d01c3014881c9c6f3133c182f3d2887eb6ca1c789a7538c5c007196857a0a6a9"
+    },
+    {
+     "name": "tokenizer.json",
+     "size": 2203239,
+     "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab"
+    },
+    {
+     "name": "vocabulary.txt",
+     "size": 459861,
+     "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913"
+    }
+   ]
+  },
+  {
+   "id": "whisper-tiny",
+   "name": "Whisper tiny",
+   "kind": "whisper",
+   "languages": [
+    "en",
+    "fr",
+    "yue",
+    "zh"
+   ],
+   "repo": "Systran/faster-whisper-tiny",
+   "revision": "d90ca5fe260221311c53c58e660288d3deb8d356",
+   "license": "MIT",
+   "license_url": "https://github.com/openai/whisper/blob/main/LICENSE",
+   "offered": "Could",
+   "note": "Quick tests",
+   "size": 78203619,
+   "files": [
+    {
+     "name": "config.json",
+     "size": 2249,
+     "sha256": "a73a28cdfe1c43ccc7202fa333d1f89c202477271407ae9a7f19afa52039cac8"
+    },
+    {
+     "name": "model.bin",
+     "size": 75538270,
+     "sha256": "dcb76c6586fc06cbdac6dd21f14cfd129cc4cdd9dce19bf4ffa62e59cbe6e6d1"
+    },
+    {
+     "name": "tokenizer.json",
+     "size": 2203239,
+     "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab"
+    },
+    {
+     "name": "vocabulary.txt",
+     "size": 459861,
+     "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913"
+    }
+   ]
+  },
+  {
+   "id": "distil-whisper-large-v3.5",
+   "name": "Distil-Whisper large-v3.5",
+   "kind": "whisper",
+   "languages": [
+    "en"
+   ],
+   "repo": "distil-whisper/distil-large-v3.5-ct2",
+   "revision": "9793ccc07920e0f830e1dba0343efcdf0ef8c903",
+   "license": "MIT",
+   "license_url": "https://huggingface.co/distil-whisper/distil-large-v3.5",
+   "offered": "Could",
+   "note": "English only",
+   "size": 1516479656,
+   "files": [
+    {
+     "name": "config.json",
+     "size": 2690,
+     "sha256": "90c55f775cc4e0bb17293d0bf12f96557a486f20dea886fabd8e6075a3588b21"
+    },
+    {
+     "name": "model.bin",
+     "size": 1512927867,
+     "sha256": "c58b88b8585ffcd2135fddaaf421ce72cb223b32edea70d156aed1dea319a119"
+    },
+    {
+     "name": "tokenizer.json",
+     "size": 2480645,
+     "sha256": "b3c8202bbf06d8ee4232c5984baa563784ac4737e2e7fdc42fa180200d3cfcdb"
+    },
+    {
+     "name": "vocabulary.json",
+     "size": 1068114,
+     "sha256": "c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1"
+    },
+    {
+     "name": "preprocessor_config.json",
+     "size": 340,
+     "sha256": "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711"
+    }
+   ]
+  },
+  {
+   "id": "moonshine-base-en-int8",
+   "name": "Moonshine base int8",
+   "kind": "moonshine",
+   "languages": [
+    "en"
+   ],
+   "repo": "csukuangfj/sherpa-onnx-moonshine-base-en-int8",
+   "revision": "052b0798ad1bf046a140fdd4efcd9426530fa3f5",
+   "license": "MIT",
+   "license_url": "https://github.com/usefulsensors/moonshine/blob/main/LICENSE",
+   "offered": "Could",
+   "note": "Fastest English",
+   "max_piece": 15,
+   "size": 286929760,
+   "files": [
+    {
+     "name": "preprocess.onnx",
+     "size": 14077290,
+     "sha256": "ffa630d395c5ccf76f5d4954be5b882df76aaf6491519ec01fd82ea7a3819fb2"
+    },
+    {
+     "name": "encode.int8.onnx",
+     "size": 50311494,
+     "sha256": "7e38770f776f2e5583a53b052936005df2ba5c833d7e09c2a5fd796b94bf73e2"
+    },
+    {
+     "name": "uncached_decode.int8.onnx",
+     "size": 122120451,
+     "sha256": "c01f4b35093bcac20d352d23a75a539e772964579f9d024a90e5e6f09cae9987"
+    },
+    {
+     "name": "cached_decode.int8.onnx",
+     "size": 99983837,
+     "sha256": "2db74e51cedf64a8b1be3c8192e0bb5e4923af0e90bd9e87f8e8771873f8ea03"
+    },
+    {
+     "name": "tokens.txt",
+     "size": 436688,
+     "sha256": "1165c2aeb9f72f457a83be2d459a09054f27490acd9b41bd43794dfd25e296ea"
+    }
+   ]
+  },
+  {
+   "id": "moonshine-tiny-en-int8",
+   "name": "Moonshine tiny int8",
+   "kind": "moonshine",
+   "languages": [
+    "en"
+   ],
+   "repo": "csukuangfj/sherpa-onnx-moonshine-tiny-en-int8",
+   "revision": "bf2b762c076d8ea61e2af0b3851c9564fb77552e",
+   "license": "MIT",
+   "license_url": "https://github.com/usefulsensors/moonshine/blob/main/LICENSE",
+   "offered": "Could",
+   "note": "Fastest English, smallest",
+   "max_piece": 15,
+   "size": 123967539,
+   "files": [
+    {
+     "name": "preprocess.onnx",
+     "size": 6800738,
+     "sha256": "f33addce61a143460fe753b5ee5b7db255e5140b5b779c065b94f6c83ff0bf4e"
+    },
+    {
+     "name": "encode.int8.onnx",
+     "size": 18249187,
+     "sha256": "8774dfba578de027ec6595c2c654a0836434489bc963a0db124a7f181f571acb"
+    },
+    {
+     "name": "uncached_decode.int8.onnx",
+     "size": 53216096,
+     "sha256": "216737000dd5881a17aa043f6bbd286add33e4c3b0ae257153e2ec15438bdc41"
+    },
+    {
+     "name": "cached_decode.int8.onnx",
+     "size": 45264830,
+     "sha256": "2aff28bba6a03d8dcf5c9feac45462629bae37317442299f28115ad09da773f6"
+    },
+    {
+     "name": "tokens.txt",
+     "size": 436688,
+     "sha256": "1165c2aeb9f72f457a83be2d459a09054f27490acd9b41bd43794dfd25e296ea"
+    }
+   ]
+  }
+ ]
+}

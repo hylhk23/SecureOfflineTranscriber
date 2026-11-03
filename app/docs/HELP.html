@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Secure Offline Transcriber Help</title>
+<style>
+:root { --fg:#1d232b; --muted:#5b6672; --bg:#ffffff; --panel:#f3f5f8; --accent:#1f5fae; --line:#d9dee5; --note:#fff7e0; }
+@media (prefers-color-scheme: dark) { :root { --fg:#e6e9ee; --muted:#a3adb8; --bg:#16191d; --panel:#1f242a; --accent:#7fb2f0; --line:#333a42; --note:#2b2617; } }
+* { box-sizing: border-box; }
+body { margin:0; font:15px/1.6 "Segoe UI", system-ui, sans-serif; color:var(--fg); background:var(--bg); }
+header { padding:28px 16px 18px; border-bottom:1px solid var(--line); }
+header div, main, nav { max-width:960px; margin:0 auto; }
+h1 { margin:0 0 4px; font-size:26px; } .sub { color:var(--muted); margin:0; }
+nav { padding:14px 16px 0; font-size:14px; }
+nav b { display:block; margin:8px 0 2px; color:var(--muted); font-weight:600; }
+nav a { color:var(--accent); text-decoration:none; margin-right:14px; white-space:nowrap; }
+main { padding:8px 16px 56px; }
+h2 { margin:40px 0 8px; font-size:21px; border-bottom:1px solid var(--line); padding-bottom:4px; }
+h3 { margin:24px 0 6px; font-size:17px; }
+p, li { max-width:860px; }
+code, kbd { font-family: Consolas, monospace; font-size:13px; background:var(--panel); padding:1px 5px; border-radius:4px; }
+kbd { border:1px solid var(--line); white-space:nowrap; }
+table { border-collapse:collapse; width:100%; margin:8px 0 14px; font-size:14px; }
+th, td { text-align:left; border-bottom:1px solid var(--line); padding:6px 8px; vertical-align:top; }
+th { background:var(--panel); position:sticky; top:0; }
+td:first-child { font-weight:600; min-width:150px; }
+td.v { white-space:nowrap; }
+.note { background:var(--note); border-left:4px solid #d39a00; padding:8px 12px; border-radius:4px; margin:10px 0; }
+.tip { background:var(--panel); border-left:4px solid var(--accent); padding:8px 12px; border-radius:4px; margin:10px 0; }
+.def { color:var(--muted); font-size:13px; }
+.part { margin-top:56px; font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.table-wrap { overflow-x:auto; }
+</style>
+</head>
+<body>
+<header><div><h1>Secure Offline Transcriber 2.1.2</h1>
+<p class="sub">Time-stamped transcripts of recorded audio and video, made entirely on this PC. English, French, Cantonese and Mandarin.</p></div></header>
+<nav>
+<b>Using the program</b>
+<a href="#start">Getting started</a><a href="#transcribe">Transcribe</a><a href="#resume">Stop and resume</a><a href="#proofread">Proofread</a>
+<a href="#names">Names from documents</a><a href="#noise">Noisy recordings</a><a href="#save">Save and export</a><a href="#models">Models</a>
+<a href="#privacy">Privacy</a><a href="#choose">Which settings to change</a>
+<b>Reference</b>
+<a href="#menu-file">File menu</a><a href="#menu-edit">Edit menu</a><a href="#menu-transcribe">Transcribe menu</a><a href="#menu-options">Options menu</a><a href="#menu-help">Help menu</a>
+<a href="#opt-general">Options: General</a><a href="#opt-transcription">Transcription</a><a href="#opt-vocabulary">Vocabulary</a><a href="#opt-output">Output</a><a href="#opt-advanced">Advanced</a>
+<a href="#window">Window, statistics and model states</a><a href="#trouble">Troubleshooting</a><a href="#keys">Keyboard shortcuts</a>
+</nav>
+<main>
+
+<p class="part">Part 1 &middot; Using the program</p>
+
+<h2 id="start">Getting started</h2>
+<ol>
+<li>Before unzipping the downloaded zip, right-click it &gt; <em>Properties</em> &gt; tick <em>Unblock</em>. Then unzip it to a folder you
+can write to, for example <code>D:\Tools\SecureOfflineTranscriber</code> (not <code>C:\Program Files</code>).</li>
+<li>Optional: run <code>verify-files.bat</code>. It checks that every file arrived complete (antivirus programs sometimes block a file
+while unzipping).</li>
+<li>Double-click <code>run.bat</code>. <code>create-shortcut.bat</code> adds shortcuts on the desktop and in the Start menu; to pin the
+program to the taskbar, start it, right-click its taskbar icon and choose <em>Pin to taskbar</em>.</li>
+<li>At the first start no speech model is installed yet. Choose <strong>Download recommended set</strong> (about 0.7 GB, or 1.9 GB on
+a PC with 12 GB of memory or more), or <strong>Add a model folder</strong> if you already keep models somewhere, for example the
+<code>local_whisper</code> folders of version 2.0.</li>
+</ol>
+<p>The window has three parts: <strong>Media input</strong> at the top (file, Transcribe button, queue, player), the
+<strong>Transcript</strong> and <strong>Raw output</strong> tabs in the middle, and the status line and statistics bar at the bottom. The title
+bar shows the program name and version, for example <em>Secure Offline Transcriber (2.1.2)</em>, and the progress while a job runs.</p>
+
+<h2 id="transcribe">Transcribe a recording</h2>
+<ol>
+<li><strong>Open</strong> a file with <em>File &gt; Open Media</em> (<kbd>Ctrl+O</kbd>), the <em>Open…</em> button, or by dropping it on the window.
+WAV, MP3, M4A, FLAC, OGG, MP4, MKV, MOV and most other audio and video files work. The info line shows format, length,
+sample rate, channels and size; a video with several audio tracks shows a track list.</li>
+<li><strong>Check the button.</strong> The Transcribe button says which model and language will be used, for example
+<em>Transcribe – Automatic (SenseVoiceSmall int8) · Auto-detect</em>. Change them in the <em>Transcribe</em> menu
+(<em>Language</em>, <em>Model</em>) if needed.</li>
+<li><strong>Press Transcribe</strong> or <kbd>F5</kbd>. Text appears as each piece is finished. The status line shows the stage and time
+left; the statistics bar shows time used, audio done and speed.</li>
+<li><strong>Results are saved automatically</strong> to the output folder (Documents\SOT Transcripts unless you changed it): the session
+file <code>.sot.json</code> plus Text with times and SRT subtitles.</li>
+</ol>
+<p><strong>Several files:</strong> open or drop two or more files and a queue appears. They run one after another; each result is saved before
+the next starts, and a file that fails is marked Failed while the queue goes on. Use <em>Remove</em>, <em>Move up</em> and
+<em>Move down</em> to arrange it before you press Transcribe.</p>
+<p><strong>What happens inside:</strong> ffmpeg.exe reads the audio (and applies noise reduction if you chose it), quiet recordings are
+raised to a normal level, voice detection finds the speech and skips silence, the model writes the text, then the clean-up removes
+invented phrases, applies your vocabulary replacements and converts Chinese to the script you chose.</p>
+
+<h2 id="resume">Stop and resume a long job</h2>
+<p><strong>Stop</strong> (<kbd>Esc</kbd> or the button) keeps the text done so far and saves it. The button then reads
+<strong>Resume from hh:mm:ss</strong>: press it (or <kbd>F5</kbd>) and the job carries on from the end of the text, with the same
+model and language, instead of starting again. Corrections you made to the text in between are kept. When it finishes, the same
+transcript and export files are updated (no "(2)" copies), and the statistics show the totals of all runs.</p>
+<ul>
+<li><strong>After a crash or power cut:</strong> the text is saved every few seconds while a job runs. At the next start the program offers
+<em>Resume transcribing</em>, <em>Show the text only</em> or <em>Discard</em>.</li>
+<li><strong>Later:</strong> open the saved transcript with <em>File &gt; Open Transcript</em>; if it was stopped, the button offers Resume.</li>
+<li><strong>From the beginning:</strong> <em>Transcribe &gt; Start Again from the Beginning</em> replaces the text on screen (saved files are kept).</li>
+<li>If the model used before is no longer available, the program asks whether to carry on with another one.</li>
+</ul>
+
+<h2 id="proofread">Proofread and correct</h2>
+<p>Checking a transcript against the recording is usually the slowest part of the work. The player and the transcript work together:</p>
+<ul>
+<li><strong>Follow playback</strong> (the <em>Follow</em> button, on by default): while the audio plays, the paragraph is tinted and the
+sentence being spoken is highlighted, and the transcript scrolls so it stays in view. If you scroll or type, following pauses for
+a few seconds so the text does not jump away from you.</li>
+<li><kbd>F9</kbd> plays or pauses at any time, even while you type in the text (<kbd>Space</kbd> also works when the cursor is not in the text).</li>
+<li><kbd>F6</kbd> <strong>replays the current sentence</strong>. Pressed again within the first second of a sentence, it goes back one more.
+When the audio is paused, it plays the sentence where your text cursor is.</li>
+<li><kbd>F8</kbd> / <kbd>F7</kbd> jump to the <strong>next / previous unsure line</strong>: lines Whisper was not sure about are tinted amber.
+The sentence is selected (so you can type over it) and played. SenseVoiceSmall, Parakeet and Moonshine do not report how sure they
+are, so their transcripts have no amber lines.</li>
+<li><strong>Click a time</strong> to play from that paragraph, or <kbd>Ctrl</kbd>+click any word to play its sentence.</li>
+<li><strong>Playback speed</strong> (the 1× list next to the player, or <em>Transcribe &gt; Playback Speed</em>): 0.5×–1.5× with natural pitch.
+0.75× helps with fast speakers.</li>
+<li><kbd>Ctrl+Left</kbd> / <kbd>Ctrl+Right</kbd> skip 5 seconds when the cursor is not in the text.</li>
+</ul>
+<p>Correct words directly in the Transcript tab. For a word that is wrong everywhere, use <em>Edit &gt; Replace</em> (<kbd>Ctrl+H</kbd>), or
+select it and choose <em>Edit &gt; Add Selection to Vocabulary</em> so it is fixed in future files too.</p>
+
+<h2 id="names">Names from your documents</h2>
+<p>Whisper writes names it has never heard as best it can ("Marta Quinteiro" becomes "Martha Kintero"). Hotwords tell Whisper which names to
+expect. Instead of typing them, take them from the meeting's paperwork:</p>
+<ol>
+<li><em>Edit &gt; Add Names from Documents…</em>, or in <em>Options &gt; Vocabulary</em> <em>Names from documents…</em> /
+<em>Names from pasted text…</em>.</li>
+<li>Choose an agenda, attendee list or e-mail: Word (.docx), Excel (.xlsx), PDF with text, text, CSV, Markdown, HTML or a saved e-mail
+(.eml). For an Outlook e-mail, copy its text and use <em>Paste text…</em>.</li>
+<li>The dialog lists the people, organisations and special terms found, with how often each appears and why it was picked
+(attendee list column, e-mail sender, capitalised name, special spelling). Suggested ones are ticked; untick anything that is not a
+name, double-click to correct a spelling.</li>
+<li>Choose the vocabulary set (or a new one, for example "Annual conference 2026"), then <em>Add to vocabulary</em>.</li>
+</ol>
+<div class="note">Hotwords help Whisper only. A set's hotwords are used up to about 100 words; names further down are not used, so keep
+the names of the coming meeting first and remove old ones. Too many unusual hotwords can make Whisper insert them where they were not
+said; if that happens, shorten the list.</div>
+<p>Names are found with simple rules on this PC, not by an AI service: Word tables and Excel columns headed <em>Name</em>,
+<em>First name</em>, <em>Last name</em>, <em>Company</em> or <em>Organisation</em> give the best results; a PDF loses its table layout, so check
+its suggestions more carefully.</p>
+
+<h2 id="noise">Noisy recordings</h2>
+<p>For recordings made in a café, on a conference floor or in a car, try <em>Transcribe &gt; Noise Reduction &gt; Light</em>. It removes rumble
+below the speech range and steady background noise before recognition, using filters built into ffmpeg.exe (nothing to download; it
+adds roughly 20 seconds per hour of audio).</p>
+<ul>
+<li><strong>Off</strong> (default) for clean recordings: filtering clean speech can lose quiet words or change a few.</li>
+<li><strong>Light</strong> for steady background noise (air conditioning, crowd murmur, traffic).</li>
+<li><strong>Strong</strong> for loud steady noise; it can make voices sound thin and cut soft syllables.</li>
+<li>Tick <em>Hear It in the Player</em> to listen to the cleaned audio before you transcribe. Compare a minute with and without it: if
+the text does not get better, leave it off.</li>
+</ul>
+<p>Noise reduction cannot separate overlapping voices or remove music and loud chatter close to the microphone.</p>
+
+<h2 id="save">Save and export</h2>
+<p>After each job the program saves the session (<code>.sot.json</code>) and the default formats. A session keeps the recording's path and
+fingerprint, the text with your edits, the statistics and the settings used; open it again with <em>File &gt; Open Transcript</em>.
+<em>File &gt; Save Transcript</em> (<kbd>Ctrl+S</kbd>) saves your edits. <em>File &gt; Export…</em> (<kbd>Ctrl+E</kbd>) writes any of the eight
+formats from the edited text:</p>
+<table><tr><th>Format</th><th>Content and use</th></tr>
+<tr><td>Text with times (.txt)</td><td><code>[00:04:26] So the first one…</code> per paragraph or segment; an optional header with file, date, length, language, model and statistics.</td></tr>
+<tr><td>Plain text (_plain.txt)</td><td>Paragraphs only, for pasting into minutes or e-mails.</td></tr>
+<tr><td>Subtitles (.srt)</td><td>One cue per segment; long ones split at punctuation to the subtitle limits. For video players and YouTube.</td></tr>
+<tr><td>WebVTT (.vtt)</td><td>As SRT, for web players and Teams or Stream uploads.</td></tr>
+<tr><td>Word (.docx)</td><td>Title, details table and transcript with bold times.</td></tr>
+<tr><td>Markdown (.md)</td><td>Heading, details list and paragraphs with times, for notes apps.</td></tr>
+<tr><td>JSON (.json)</td><td>Every segment with start, end, text, language and an "unsure" flag, plus statistics; for other programs.</td></tr>
+<tr><td>CSV (.csv)</td><td>One row per segment (index, start, end, duration, text); opens in Excel with Chinese intact.</td></tr></table>
+<p>Subtitles, JSON and CSV are written per segment; a paragraph you edited is written as one entry so your correction is not lost.</p>
+
+<h2 id="models">Models</h2>
+<p><em>Options &gt; Transcription</em> holds the model manager. Each model is downloaded once from Hugging Face at a fixed version, and every
+file is checked by SHA-256; after that everything runs offline.</p>
+<table><tr><th>Model</th><th>Size</th><th>Languages</th><th>Good for</th></tr>
+<tr><td>SenseVoiceSmall int8</td><td>240 MB</td><td>Cantonese, Mandarin, English</td><td>Very fast; the best choice for Cantonese and mixed Cantonese–English. No hotwords, no amber lines.</td></tr>
+<tr><td>Whisper small</td><td>486 MB</td><td>All four</td><td>Modest PCs; hotwords work; weak at Cantonese.</td></tr>
+<tr><td>Whisper large-v3-turbo</td><td>1.6 GB</td><td>All four</td><td>Best English and French on PCs with 12 GB of memory or more; several times slower than small.</td></tr>
+<tr><td>Whisper large-v3</td><td>3.1 GB</td><td>All four</td><td>Hardest Cantonese passages; slow on a CPU.</td></tr>
+<tr><td>Whisper medium / base / tiny</td><td>1.5 GB / 148 MB / 78 MB</td><td>All four</td><td>Medium is rarely better than turbo; base and tiny are for very old PCs and quick tests.</td></tr>
+<tr><td>Distil-Whisper large-v3.5</td><td>1.5 GB</td><td>English</td><td>Fast, accurate English only.</td></tr>
+<tr><td>Parakeet-TDT-0.6B-v3 int8</td><td>670 MB</td><td>English, French</td><td>Fast and accurate English and French; no hotwords.</td></tr>
+<tr><td>Moonshine tiny / base int8</td><td>124 / 287 MB</td><td>English</td><td>The fastest English on light PCs.</td></tr></table>
+<ul>
+<li><strong>Model download folder:</strong> <em>Change…</em> offers "Move my models there" or "Just use the new folder"; the old folder is removed only
+after every file has been copied and checked.</li>
+<li><strong>Other model locations:</strong> <em>Add folder…</em> accepts any folder (another drive, a NAS share, a USB stick). The folder and one level of
+subfolders are searched; models there are used in place and never changed. An unplugged location shows "Location offline".</li>
+<li><strong>Add model from folder…</strong> takes one model folder and asks whether to copy it or use it where it is.</li>
+<li><strong>PCs without internet:</strong> select models and choose <em>Export model pack…</em>; on the other PC choose <em>Import model pack…</em>.</li>
+<li><strong>Updating the model list:</strong> the models offered come from a model list file. If you are sent a newer one, choose
+<em>Import model list…</em> or drop it on the window. New models appear; models you have show "Update available" when a newer version is
+listed and keep working until you press <em>Update</em>; models no longer listed stay usable. <em>Use built-in list</em> goes back.</li>
+</ul>
+
+<h2 id="privacy">Privacy</h2>
+<ul>
+<li>Audio and transcripts never leave this PC. There is no account, analytics, crash reporting or update server.</li>
+<li>The network is used only to download a model you chose; <em>Options &gt; Offline Mode</em> blocks even that. It switches on by itself once a
+model is installed.</li>
+<li>Settings, logs, temporary files and the job journal stay in the <code>data</code> folder inside the program folder (or the folder you
+chose). Logs hold file names and timings, never transcript text, and are kept 7 days.</li>
+<li><em>Options &gt; Advanced &gt; Privacy check</em> lists all of this for your PC.</li>
+</ul>
+
+<h2 id="choose">Which settings to change: a quick guide</h2>
+<div class="table-wrap"><table>
+<tr><th>Situation</th><th>Try this</th></tr>
+<tr><td>Cantonese or Cantonese mixed with English</td><td>Language <em>Cantonese</em> (or Auto-detect) with SenseVoiceSmall. Choose Traditional (Hong Kong) or Simplified in <em>Options &gt; Transcription</em>.</td></tr>
+<tr><td>Names and company names come out wrong</td><td>Use Whisper; add the names as hotwords (<a href="#names">Names from documents</a>); add fixed misspellings as replacements.</td></tr>
+<tr><td>English or French meeting, best quality</td><td>Whisper large-v3-turbo (12 GB of memory or more) or Parakeet; Speed <em>Accurate</em> if time allows.</td></tr>
+<tr><td>Long file on a slow PC</td><td>SenseVoiceSmall or Parakeet; Speed <em>Fast</em>; Stop and Resume when you need the PC.</td></tr>
+<tr><td>Café or conference-floor recording</td><td><a href="#noise">Noise reduction</a> Light; check with <em>Hear It in the Player</em>.</td></tr>
+<tr><td>Quiet speakers are missed</td><td>Keep <em>Normalise volume</em> on; lower <em>Speech threshold</em> to 0.35–0.4.</td></tr>
+<tr><td>Text appears where nobody spoke ("Thank you for watching")</td><td>Keep the invented-text filter on and add the phrase to its list; raise <em>Speech threshold</em> to 0.6.</td></tr>
+<tr><td>One speaker per stereo channel</td><td><em>Stereo to mono</em>: Left or Right to transcribe one person.</td></tr>
+<tr><td>Subtitles for a video</td><td>Export SRT; set the subtitle limits; turn on <em>Word timestamps</em> for tighter timing (Whisper).</td></tr>
+<tr><td>Checking the transcript</td><td>Follow playback on, 0.75× speed, <kbd>F8</kbd> through the amber lines, <kbd>F6</kbd> to hear a sentence again.</td></tr>
+</table></div>
+
+<p class="part">Part 2 &middot; Menu reference</p>
+
+<h2 id="menu-file">File menu</h2>
+<table><tr><th>Item</th><th>Keys</th><th>What it does</th></tr>
+<tr><td>Open Media…</td><td class="v"><kbd>Ctrl+O</kbd></td><td>Opens one recording, or several (they go to the queue). A model list file (.json) opened or dropped here is offered as a model list update.</td></tr>
+<tr><td>Open Recent</td><td></td><td>The last 10 files; <em>Clear List</em> empties it. Off when "Remember recent files" is off.</td></tr>
+<tr><td>Open Transcript…</td><td></td><td>Reopens a saved session (.sot.json) with its recording. If the recording has moved, you are asked for it and it is checked by SHA-256. A stopped transcript can be resumed.</td></tr>
+<tr><td>Open Output Folder</td><td class="v"><kbd>Ctrl+Shift+O</kbd></td><td>Opens the folder where results are saved.</td></tr>
+<tr><td>Save Transcript</td><td class="v"><kbd>Ctrl+S</kbd></td><td>Saves the session with your edits (asks for a name the first time).</td></tr>
+<tr><td>Save Transcript As…</td><td class="v"><kbd>Ctrl+Shift+S</kbd></td><td>Saves the session under a new name.</td></tr>
+<tr><td>Export…</td><td class="v"><kbd>Ctrl+E</kbd></td><td>Writes any of the eight formats from the edited text; the choices apply to this export only.</td></tr>
+<tr><td>Copy Transcript</td><td class="v"><kbd>Ctrl+Shift+C</kbd></td><td>Copies the text with times to the clipboard, as plain text and formatted text (bold times in Word or Outlook).</td></tr>
+<tr><td>File Properties…</td><td class="v"><kbd>Alt+Enter</kbd></td><td>Container, codecs, audio tracks, duration, sample rate and size.</td></tr>
+<tr><td>Close</td><td class="v"><kbd>Ctrl+W</kbd></td><td>Closes the file; asks to save unsaved edits.</td></tr>
+<tr><td>Exit</td><td class="v"><kbd>Ctrl+Q</kbd></td><td>Quits. During a job it asks "Stop the transcription and close?"; the text so far can be resumed at the next start.</td></tr>
+</table>
+
+<h2 id="menu-edit">Edit menu</h2>
+<table><tr><th>Item</th><th>Keys</th><th>What it does</th></tr>
+<tr><td>Undo / Redo</td><td class="v"><kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd></td><td>Text edits in the Transcript tab.</td></tr>
+<tr><td>Cut / Copy / Paste</td><td class="v"><kbd>Ctrl+X</kbd> / <kbd>Ctrl+C</kbd> / <kbd>Ctrl+V</kbd></td><td>In the active tab (Raw output is read-only: Copy only).</td></tr>
+<tr><td>Select All</td><td class="v"><kbd>Ctrl+A</kbd></td><td>In the active tab.</td></tr>
+<tr><td>Find… / Find Next</td><td class="v"><kbd>Ctrl+F</kbd> / <kbd>F3</kbd></td><td>Searches the transcript (match case, whole word).</td></tr>
+<tr><td>Replace…</td><td class="v"><kbd>Ctrl+H</kbd></td><td>Replaces a misheard word in this transcript (one by one or all).</td></tr>
+<tr><td>Add Selection to Vocabulary…</td><td></td><td>Opens <em>Options &gt; Vocabulary</em> with the selected words as "Heard", so you type the right spelling once and it is fixed in future files.</td></tr>
+<tr><td>Add Names from Documents…</td><td></td><td>Finds names in an agenda, attendee list or e-mail and adds the ones you tick to a vocabulary set as hotwords (<a href="#names">details</a>).</td></tr>
+<tr><td>Apply Vocabulary Replacements</td><td></td><td>Runs the active set's replacements on the open transcript, for example after adding a new one.</td></tr>
+<tr><td>Go to Time…</td><td class="v"><kbd>Ctrl+G</kbd></td><td>Moves the player and the transcript to a time (hh:mm:ss or mm:ss).</td></tr>
+</table>
+
+<h2 id="menu-transcribe">Transcribe menu</h2>
+<table><tr><th>Item</th><th>Keys</th><th>What it does</th></tr>
+<tr><td>Transcribe / Resume</td><td class="v"><kbd>F5</kbd></td><td>Starts the job (or the queue). If the open transcript was stopped, carries on from where it stopped.</td></tr>
+<tr><td>Start Again from the Beginning</td><td></td><td>Transcribes the whole file again; the text on screen is replaced, saved files are kept.</td></tr>
+<tr><td>Stop</td><td class="v"><kbd>Esc</kbd></td><td>Stops this file and the rest of the queue, keeping and saving the text done so far.</td></tr>
+<tr><td>Play / Pause</td><td class="v"><kbd>F9</kbd>, <kbd>Space</kbd></td><td>Player. <kbd>F9</kbd> works everywhere; <kbd>Space</kbd> only when the cursor is not in the text. Works while a job runs.</td></tr>
+<tr><td>Replay Sentence</td><td class="v"><kbd>F6</kbd></td><td>Plays the current sentence again (the one before, if pressed at its very start).</td></tr>
+<tr><td>Previous / Next Unsure Line</td><td class="v"><kbd>F7</kbd> / <kbd>F8</kbd></td><td>Selects and plays the previous / next line Whisper was unsure about (amber).</td></tr>
+<tr><td>Skip Back / Forward 5 s</td><td class="v"><kbd>Ctrl+Left</kbd> / <kbd>Ctrl+Right</kbd></td><td>When the cursor is not in the text.</td></tr>
+<tr><td>Playback Speed</td><td></td><td>0.5×, 0.75×, 1×, 1.25×, 1.5×; pitch stays natural. Also in the list next to the player.</td></tr>
+<tr><td>Follow Playback</td><td></td><td>Highlights the sentence being played and scrolls with it. Same as the <em>Follow</em> button.</td></tr>
+<tr><td>Language</td><td></td><td>Auto-detect, English, French, Cantonese, Mandarin (see <a href="#set-transcription.language">Language</a>).</td></tr>
+<tr><td>Model</td><td></td><td>Automatic, or one installed model (see <a href="#set-transcription.model">Model</a>).</td></tr>
+<tr><td>Speed</td><td></td><td>Fast (beam 1) or Accurate (beam 5); Whisper only, greyed out for other models.</td></tr>
+<tr><td>Noise Reduction</td><td></td><td>Off, Light, Strong, and <em>Hear It in the Player</em> (see <a href="#noise">Noisy recordings</a>).</td></tr>
+<tr><td>Vocabulary Set</td><td></td><td>Chooses which set of hotwords and replacements is used; <em>Edit Vocabulary…</em> opens the Vocabulary tab.</td></tr>
+<tr><td>Add Files to Queue…</td><td></td><td>Adds files to the queue without opening them.</td></tr>
+</table>
+
+<h2 id="menu-options">Options menu</h2>
+<table><tr><th>Item</th><th>Keys</th><th>What it does</th></tr>
+<tr><td>General… / Transcription… / Vocabulary… / Output… / Advanced…</td><td></td><td>Open the Options dialog on that tab (described below).</td></tr>
+<tr><td>Offline Mode</td><td></td><td>Tick: no network call at all; Download buttons are greyed out. Other model locations, Add model from folder and Import still work. Same as <a href="#set-advanced.offline">Advanced &gt; Offline mode</a>.</td></tr>
+<tr><td>Auto-save Transcript</td><td></td><td>Tick: save the session and default formats after each job. Untick: nothing is saved until you save or export. Same as <a href="#set-output.autosave">Output &gt; Auto-save</a>.</td></tr>
+<tr><td>Keep PC Awake During Jobs</td><td></td><td>Stops Windows from sleeping while a job runs (the screen may still turn off).</td></tr>
+<tr><td>Always on Top</td><td></td><td>Keeps the window above other windows, for example while you type minutes in Word.</td></tr>
+<tr><td>All Settings…</td><td class="v"><kbd>Ctrl+,</kbd></td><td>Opens the Options dialog on the tab you used last.</td></tr>
+</table>
+
+<h2 id="menu-help">Help menu</h2>
+<table><tr><th>Item</th><th>Keys</th><th>What it does</th></tr>
+<tr><td>Help Contents</td><td class="v"><kbd>F1</kbd></td><td>Opens this page (a file on this PC).</td></tr>
+<tr><td>Keyboard Shortcuts</td><td class="v"><kbd>Ctrl+/</kbd></td><td>Table of keys and actions.</td></tr>
+<tr><td>Open Log Folder</td><td></td><td>The daily log files (file names and timings only), kept 7 days.</td></tr>
+<tr><td>Check for Updates</td><td></td><td>Shows the version. There is no update server: new versions are installed by replacing the program folder. No network call.</td></tr>
+<tr><td>About</td><td></td><td>Version, library versions, credits, licence, copyright and the donation link (the only link that leaves the PC, and only when you click it).</td></tr>
+</table>
+
+<p class="part">Part 3 &middot; Settings reference</p>
+<p>All settings are in the Options dialog (<kbd>Ctrl+,</kbd>). Changes take effect when you press <em>OK</em> or <em>Apply</em>.
+<em>Export…</em> and <em>Import…</em> save and load all settings (including vocabulary sets) as one file to share a set-up; <em>Restore
+defaults</em> asks first and never deletes models, transcripts, vocabulary sets or model locations. Defaults are shown in <strong>bold</strong>.</p>
+
+<h2 id="opt-general">Options: General</h2>
+<div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
+<tr id="set-general.data_folder"><td>Data folder</td><td>Folder · <strong>data</strong> in the program folder</td><td>Where logs, temporary files and the job journal (for resume after a crash) are kept. <em>Change…</em> offers "Move my data there" or "Start fresh there". Settings themselves always stay in the program's data folder (or in %LOCALAPPDATA% if the program folder is read-only).</td></tr>
+<tr id="set-general.output_folder"><td>Default output folder</td><td>Folder · <strong>Documents\SOT Transcripts</strong></td><td>Where transcripts and exports are saved. Choose a folder that is backed up; a synced folder (OneDrive) copies transcripts to the cloud, which you may not want for confidential meetings.</td></tr>
+<tr id="set-general.save_next_to_media"><td>Save next to the media file instead</td><td>Tick · <strong>off</strong></td><td>Saves results in the recording's folder. Handy when each meeting has its own folder; not possible when the recording is on a read-only drive.</td></tr>
+<tr id="set-general.theme"><td>Theme</td><td><strong>Follow Windows</strong> / Light / Dark</td><td>Window colours.</td></tr>
+<tr id="set-general.font_size"><td>Font size in the Transcript tab</td><td>9–20 pt · <strong>11</strong></td><td>Larger text is easier to proofread; smaller shows more at once.</td></tr>
+<tr id="set-general.always_on_top"><td>Always on top</td><td>Tick · <strong>off</strong></td><td>Same as <em>Options &gt; Always on Top</em>.</td></tr>
+<tr id="set-general.remember_recent"><td>Remember recent files</td><td>Tick · <strong>on</strong></td><td>Keeps the File &gt; Open Recent list. Turning it off also clears the list (useful on a shared PC).</td></tr>
+<tr id="set-general.open_last"><td>Open the last file at start-up</td><td>Tick · <strong>off</strong></td><td>Reopens the last recording when the program starts.</td></tr>
+<tr id="set-general.keep_awake"><td>Keep the PC awake during a job</td><td>Tick · <strong>on</strong></td><td>Prevents sleep during long jobs; on a laptop, keep it plugged in.</td></tr>
+<tr id="set-general.background_priority"><td>Background priority during a job</td><td>Tick · <strong>off</strong></td><td>Runs recognition at a lower priority so other programs stay responsive. The job takes longer while you use the PC.</td></tr>
+<tr id="set-general.notify"><td>Notify when a job finishes</td><td>Tick · <strong>on</strong></td><td>A Windows notification when the window is minimised or in the background.</td></tr>
+<tr id="set-general.ask_unsaved"><td>Ask before closing with unsaved edits</td><td>Tick · <strong>on</strong></td><td>Asks to save corrections before closing a file or the program. Turn off only if you always save by hand.</td></tr>
+<tr id="set-general.follow_playback"><td>Follow playback</td><td>Tick · <strong>on</strong> (Follow button, Transcribe menu)</td><td>Highlights the sentence being played and scrolls with it. Turn off if you prefer the text to stay still while you read elsewhere.</td></tr>
+<tr id="set-general.playback_speed"><td>Playback speed</td><td>0.5× / 0.75× / <strong>1×</strong> / 1.25× / 1.5× (list next to the player)</td><td>Player only; recognition is not affected. Slower is easier for checking fast speech; faster for skimming.</td></tr>
+</table></div>
+
+<h2 id="opt-transcription">Options: Transcription</h2>
+<div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
+<tr id="set-transcription.language"><td>Language</td><td><strong>Auto-detect</strong> / English / French / Cantonese / Mandarin</td><td>Auto-detect listens to the first speech and picks the language and model. Choose the language when you know it: it saves the check and avoids a wrong guess on recordings that start with another language or noise. For Cantonese mixed with English, choose Cantonese.</td></tr>
+<tr id="set-transcription.model"><td>Model</td><td><strong>Automatic</strong> / any installed model</td><td>Automatic uses the first installed model in the language's row of the Automatic table below. Choose a model to use it for every language it supports.</td></tr>
+<tr id="set-transcription.per_language"><td>Automatic model choice</td><td>Three choices per language · <strong>the model list's order</strong></td><td>The order Automatic tries for each language; the first installed one is used. <em>Use model list order</em> goes back to the order in the model list (and follows future model list updates).</td></tr>
+<tr id="set-transcription.speed"><td>Speed (Whisper)</td><td><strong>Fast (beam 1)</strong> / Accurate (beam 5)</td><td>Accurate considers five candidate texts at each step: slightly better names and punctuation, about twice as slow. No effect on other models.</td></tr>
+<tr id="set-transcription.threads"><td>CPU threads</td><td><strong>Auto (all cores)</strong> / 1–16</td><td>Fewer threads leave the PC more responsive but make the job slower. Changing it reloads the model.</td></tr>
+<tr id="set-transcription.script_yue"><td>Cantonese script</td><td><strong>Traditional (Hong Kong)</strong> / Traditional (Taiwan) / Simplified</td><td>Chinese characters for Cantonese transcripts. Replacements written in either script still match.</td></tr>
+<tr id="set-transcription.script_zh"><td>Mandarin script</td><td>Traditional (Hong Kong) / Traditional (Taiwan) / <strong>Simplified</strong></td><td>Chinese characters for Mandarin transcripts.</td></tr>
+<tr id="set-transcription.download_folder"><td>Model download folder</td><td>Folder · <strong>models</strong> in the program folder</td><td>Where downloaded and copied models go. Models are large (0.1–3 GB each); put them on a drive with space. <em>Change…</em> can move existing models.</td></tr>
+<tr id="set-transcription.locations"><td>Other model locations</td><td>List of folders · <strong>empty</strong></td><td>Folders searched for models that are used where they are (another drive, NAS, USB stick). <em>Refresh</em> searches again; <em>Remove</em> stops using a folder without deleting anything.</td></tr>
+</table></div>
+<p><strong>Models list (model manager):</strong> each row shows languages, size, licence, location and status, with <em>Download</em>,
+<em>Pause</em> (or <em>Resume</em>, <em>Update</em>) and <em>Delete</em>. <em>Download recommended set for this PC</em> fetches the set for your PC's
+memory. <em>Import model list…</em> / <em>Use built-in list</em> manage the list of models offered. <em>Add model from folder…</em>,
+<em>Import model pack…</em> and <em>Export model pack…</em> bring models from folders or other PCs. Delete removes only models in the download
+folder; models in other locations are never deleted.</p>
+
+<h2 id="opt-vocabulary">Options: Vocabulary</h2>
+<div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
+<tr id="set-vocabulary.sets"><td>Vocabulary set</td><td>Named sets · <strong>Default</strong>; New, Rename, Duplicate, Delete</td><td>Keep a set per event or client (for example "Annual conference", "Client meetings") so each meeting gets short, relevant hotwords.</td></tr>
+<tr id="set-vocabulary.active"><td>Active set</td><td>Any set · <strong>Default</strong> (also in Transcribe &gt; Vocabulary Set)</td><td>The set used for the next transcriptions.</td></tr>
+<tr id="set-vocabulary.scope"><td>Use this set for</td><td><strong>All languages</strong> / one language</td><td>A set for one language is not used when the recording is in another, so English names do not disturb a Cantonese transcript.</td></tr>
+<tr id="set-vocabulary.hotwords"><td>Hotwords (Whisper)</td><td>One per line · <strong>empty</strong>; counter "n of about 100 words"</td><td>Names, products and jargon Whisper should expect, most important first. About 100 words are used; the rest are listed in Raw output as not used. Too many unusual hotwords can make Whisper insert them where they were not said. <em>Names from documents…</em> and <em>Names from pasted text…</em> fill the list for you. Other models ignore hotwords.</td></tr>
+<tr id="set-vocabulary.replacements"><td>Replacements (all models)</td><td>Heard → Correct, Whole word, Match case · <strong>empty</strong></td><td>Fix spellings after recognition, in list order, for every model (for example "Nova Lyte" → "Novalite"). <em>Whole word</em> stops "Ana" changing inside "Banana"; <em>Match case</em> makes "May" (month) different from "may". Each replacement made is listed in Raw output.</td></tr>
+</table></div>
+<p><em>Import…</em> / <em>Export…</em> exchange hotwords as .txt and replacements as .csv; <em>Test…</em> shows a pasted sentence with the
+replacements applied.</p>
+
+<h2 id="opt-output">Options: Output</h2>
+<div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
+<tr id="set-output.autosave"><td>Auto-save after each job</td><td>Off / Session only / <strong>Session + default exports</strong></td><td>Off: nothing is saved until you save or export (the text is lost if you close without saving). Session only: the .sot.json you can reopen and resume. Session + exports: also the formats ticked below.</td></tr>
+<tr id="set-output.formats"><td>Default export formats</td><td>Ticks for the eight formats · <strong>Text with times, SRT</strong></td><td>Formats written by auto-save and pre-ticked in File &gt; Export. More formats = more files per recording.</td></tr>
+<tr id="set-output.save_to"><td>Save to</td><td><strong>Output folder</strong> / Next to the media file / Ask each time</td><td>Where auto-save writes. Ask each time suits recordings that belong to different projects.</td></tr>
+<tr id="set-output.pattern"><td>File name pattern</td><td>Text with {name} {date} {time} {model} {lang} · <strong>{name}_stt_{model}</strong></td><td>{name} is the recording's name; including {model} lets you keep transcripts from different models side by side; {date}/{time} keep each run separate.</td></tr>
+<tr id="set-output.if_exists"><td>If the file exists</td><td>Ask / <strong>Add a number</strong> / Overwrite</td><td>Add a number keeps every version ("(2)", "(3)"). Overwrite replaces older results without asking. Ask asks for each export (the session file gets a number). A resumed job always updates its own files.</td></tr>
+<tr id="set-output.times"><td>Times in text formats</td><td>None / <strong>Each paragraph</strong> / Each segment</td><td>Each segment shows one line per piece in the Transcript tab and text files (more times, shorter lines); None writes text formats without times (the Transcript tab still shows them).</td></tr>
+<tr id="set-output.time_format"><td>Time format</td><td><strong>hh:mm:ss</strong> / mm:ss / hh:mm:ss.mmm</td><td>How times are written in text formats.</td></tr>
+<tr id="set-output.para_pause"><td>Paragraphs: pause</td><td>0.5–30 s · <strong>2 s</strong></td><td>A pause this long starts a new paragraph. Shorter = more, shorter paragraphs (often a change of speaker).</td></tr>
+<tr id="set-output.para_chars"><td>Paragraphs: length</td><td>100–5,000 characters · <strong>600</strong></td><td>A paragraph is also ended after this many characters, so long monologues stay readable.</td></tr>
+<tr id="set-output.sub_chars"><td>Subtitle: characters per line</td><td>16–80 · <strong>42</strong></td><td>42 is the usual broadcast limit; use about 16–20 for Chinese.</td></tr>
+<tr id="set-output.sub_lines"><td>Subtitle: lines per cue</td><td>1–3 · <strong>2</strong></td><td>More lines = fewer, larger subtitles.</td></tr>
+<tr id="set-output.sub_max"><td>Subtitle: longest cue</td><td>2–15 s · <strong>7 s</strong></td><td>Longer cues are split.</td></tr>
+<tr id="set-output.sub_min"><td>Subtitle: shortest cue</td><td>0.3–5 s · <strong>1 s</strong></td><td>Very short cues are lengthened so they can be read.</td></tr>
+<tr id="set-output.encoding"><td>Text encoding</td><td><strong>UTF-8</strong> / UTF-8 with BOM</td><td>For .txt files. Choose "with BOM" if an old program shows Chinese or accents wrongly. CSV always has a BOM so Excel shows Chinese.</td></tr>
+<tr id="set-output.stats_header"><td>Statistics header in TXT and DOCX</td><td>Tick · <strong>off</strong></td><td>Adds the statistics line (time, speed, model) to the header of text, Markdown and Word files.</td></tr>
+<tr id="set-output.page_size"><td>Page size (DOCX)</td><td><strong>Letter</strong> / A4</td><td>Letter for North America, A4 for Hong Kong, Europe and most other places.</td></tr>
+<tr id="set-output.remove_fillers"><td>Remove filler words</td><td>Tick · <strong>off</strong></td><td>Removes "um", "uh" and similar from the text. Makes minutes easier to read, but the text no longer matches the speech word for word.</td></tr>
+<tr id="set-output.filler_list"><td>Filler words</td><td>Comma-separated · <strong>um, uh, erm, 嗯, 呃</strong></td><td>The words removed when the option above is on.</td></tr>
+</table></div>
+
+<h2 id="opt-advanced">Options: Advanced</h2>
+<p>These settings tune recognition; the defaults suit most recordings, so change one thing at a time and compare. Values that differ
+from the default are shown in bold, and each group has <em>Restore this group</em>. The Decoding group is greyed out when the chosen model
+is not Whisper.</p>
+<h3>Decoding (Whisper only)</h3>
+<div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
+<tr id="set-advanced.beam"><td>Beam size</td><td><strong>Follow Speed</strong> (Fast 1, Accurate 5) / 1–10</td><td>How many candidate texts Whisper compares at each step. Higher is a little more accurate and proportionally slower; above 5 rarely helps.</td></tr>
+<tr id="set-advanced.temperature_fallback"><td>Temperature fallback</td><td>Tick · <strong>on</strong></td><td>When a 30-second window looks wrong (repetitive or unsure), Whisper retries it with more freedom (0.2, 0.4 … 1.0). Recovers from loops; costs time on difficult audio.</td></tr>
+<tr id="set-advanced.compression_ratio"><td>Compression-ratio limit</td><td>1.5–3.0 · <strong>2.4</strong></td><td>Text that repeats itself more than this is retried. Lower catches more loops but retries more good windows.</td></tr>
+<tr id="set-advanced.log_prob"><td>Log-probability limit</td><td>−2.0 to 0.0 · <strong>−1.0</strong></td><td>Windows Whisper is less sure about than this are retried. Closer to 0 retries more (slower).</td></tr>
+<tr id="set-advanced.no_speech"><td>No-speech limit</td><td>0.0–1.0 · <strong>0.6</strong></td><td>Windows judged more likely silent than this (and unsure) are skipped. Lower skips more and can drop quiet speech; higher keeps more and can add invented text.</td></tr>
+<tr id="set-advanced.carry_previous"><td>Carry previous text into the next window</td><td>Tick · <strong>off</strong></td><td>Gives Whisper the previous text as context: slightly more consistent names and style, but a mistake can repeat for minutes ("Thank you for watching" loops). Keep off unless you check the result.</td></tr>
+<tr id="set-advanced.repetition_penalty"><td>Repetition penalty</td><td>1.00–1.20 · <strong>1.00</strong></td><td>Above 1.00 discourages repeating words. Can help with stutter loops; too high removes real repetitions ("very, very").</td></tr>
+<tr id="set-advanced.word_timestamps"><td>Word timestamps</td><td>Tick · <strong>off</strong></td><td>Times each word: tighter subtitle splits and better silence skipping; a little slower.</td></tr>
+<tr id="set-advanced.skip_silence"><td>Skip long silences inside a window</td><td>0.5–10 s · <strong>2 s</strong></td><td>With word timestamps on, text found in a silence longer than this is treated as invented and skipped.</td></tr>
+</table></div>
+<h3>Voice detection</h3>
+<div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
+<tr id="set-advanced.vad_threshold"><td>Speech threshold</td><td>0.1–0.9 · <strong>0.5</strong></td><td>How sure the detector must be that a sound is speech. Lower (0.35–0.4) finds quiet or distant speakers but also more noise; higher (0.6) ignores more noise but can miss soft speech.</td></tr>
+<tr id="set-advanced.vad_min_silence_ms"><td>Shortest silence that splits speech</td><td>100–2,000 ms · <strong>500</strong></td><td>Pauses shorter than this stay inside one piece. Longer values give longer pieces with more context.</td></tr>
+<tr id="set-advanced.vad_pad_ms"><td>Padding around speech</td><td>0–1,000 ms · <strong>300</strong></td><td>Audio kept before and after each piece so first and last syllables are not cut. More padding includes more background noise.</td></tr>
+<tr id="set-advanced.max_piece_s"><td>Longest piece (SenseVoice, Parakeet, Moonshine)</td><td>5–25 s · <strong>15</strong></td><td>Long speech is cut into pieces of at most this length for these models. Longer pieces give more context but use more memory and can lose words at the end.</td></tr>
+</table></div>
+<h3>Audio</h3>
+<div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
+<tr id="set-advanced.normalise"><td>Normalise volume</td><td>Tick · <strong>on</strong></td><td>Raises quiet recordings so speech sits near the target level. Loud recordings are left alone. Keep on: quiet recordings otherwise lose many words.</td></tr>
+<tr id="set-advanced.target_dbfs"><td>Target level</td><td>−40 to −10 dBFS · <strong>−23</strong></td><td>Speech level aimed for.</td></tr>
+<tr id="set-advanced.max_gain_db"><td>Largest boost</td><td>0–50 dB · <strong>35</strong></td><td>Limit of the boost, so a recording of near silence is not turned into loud hiss.</td></tr>
+<tr id="set-advanced.stereo"><td>Stereo to mono</td><td><strong>Average both channels</strong> / Left / Right</td><td>With one microphone per channel (for example an interview recorder), Left or Right transcribes one person only.</td></tr>
+<tr id="set-advanced.noise_reduction"><td>Noise reduction</td><td><strong>Off</strong> / Light / Strong</td><td>Removes rumble and steady background noise before recognition with FFmpeg's filters (highpass + afftdn). Helps noisy recordings; can lose quiet words in clean ones. See <a href="#noise">Noisy recordings</a>.</td></tr>
+<tr id="set-advanced.noise_in_player"><td>Hear noise reduction in the player</td><td>Tick · <strong>off</strong></td><td>Plays the cleaned audio, to judge whether the filter helps before transcribing.</td></tr>
+</table></div>
+<h3>Invented-text filter</h3>
+<div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
+<tr id="set-advanced.filter_known"><td>Drop known filler phrases</td><td>Tick · <strong>on</strong></td><td>Removes phrases models invent in silence or music, and pieces of only symbols. Each removed piece is listed in Raw output with its time and reason, so nothing disappears silently.</td></tr>
+<tr id="set-advanced.filter_list"><td>Phrases</td><td>One per line · <strong>"Thank you for watching", "Takk for ating med", "Subtitles by", "Please subscribe" …</strong></td><td>Add any phrase you find invented in your recordings. A real sentence that matches is removed too, so keep entries specific.</td></tr>
+<tr id="set-advanced.repeat_limit"><td>Drop a phrase repeated more than N times in a row</td><td>2–10 · <strong>3</strong></td><td>Stops runaway repetitions. Raise it if a speaker really repeats a phrase (chants, roll calls).</td></tr>
+</table></div>
+<h3>Performance</h3>
+<div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
+<tr id="set-advanced.compute_type"><td>Compute type (Whisper)</td><td><strong>int8</strong> / int8 + float32 / float32</td><td>int8 is fastest and smallest with nearly the same accuracy. float32 uses about twice the memory and is slower; use int8 + float32 or float32 only if int8 gives errors on an old CPU. Reloads the model.</td></tr>
+<tr id="set-advanced.keep_loaded"><td>Keep the model loaded between files</td><td>Tick · <strong>on</strong></td><td>The next file starts at once instead of loading the model again (tens of seconds for large models). Turn off to free memory (up to 3 GB) between jobs.</td></tr>
+<tr id="set-advanced.priority"><td>Process priority during a job</td><td><strong>Normal</strong> / Below normal</td><td>Below normal keeps the PC responsive while you work; the job takes longer. Same effect as General &gt; Background priority.</td></tr>
+</table></div>
+<h3>Network</h3>
+<div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
+<tr id="set-advanced.offline"><td>Offline mode</td><td>Tick · <strong>on once a model is installed</strong></td><td>Blocks every network call; downloads are greyed out. Turn off only to download or update models.</td></tr>
+<tr id="set-advanced.proxy"><td>Proxy</td><td><strong>System</strong> / None</td><td>For model downloads only. System uses Windows' proxy settings (company networks); None connects directly.</td></tr>
+</table></div>
+<h3>Storage, tools and file types</h3>
+<table><tr><th>Item</th><th>What it does</th></tr>
+<tr><td>Storage</td><td>Shows the size of the model and temp folders; <em>Open data folder</em>; <em>Clear temp now</em>.</td></tr>
+<tr><td>Environment check…</td><td>Windows version, CPU, cores, AVX2, memory, free disk, Python and library versions, installed models. <em>Copy</em> for support.</td></tr>
+<tr><td>Privacy check…</td><td>Offline Mode state, every folder the program uses, whether the temp folder is empty, and that no network port is open.</td></tr>
+<tr><td>Copy diagnostic summary</td><td>Both checks to the clipboard (no transcript text).</td></tr>
+<tr><td>File types: Register / Unregister</td><td>Adds the program to "Open with" for WAV, MP3, MP4, MKV and M4A, for your Windows account only.</td></tr>
+<tr><td>Show first-run guide again</td><td>The welcome page with the recommended model download.</td></tr>
+</table>
+
+<p class="part">Part 4 &middot; More reference</p>
+
+<h2 id="window">Window, statistics and model states</h2>
+<h3>Statistics bar</h3>
+<p>Example: <code>Time 00:00:25 · Audio 00:13:59 · Tokens in 7,491 (speech 7,319, text 172) / out 1,646 · Speed 33.2× real time,
+97.1 tok/s · SenseVoiceSmall int8 on CPU</code></p>
+<table><tr><th>Item</th><th>Meaning</th></tr>
+<tr><td>Time</td><td>Wall-clock time from Transcribe to results (all runs, if resumed). Hover for reading, language check, model loading, recognition, clean-up and saving.</td></tr>
+<tr><td>Audio</td><td>Length of audio processed. Hover for the speech found, the language and how sure the detection was, and the volume boost.</td></tr>
+<tr><td>Tokens in / out</td><td>Units the model read (speech positions and text prompts, including hotwords) and wrote.</td></tr>
+<tr><td>Speed</td><td>Audio ÷ Time: 2× means a 1-hour file takes 30 minutes. tok/s is the model's writing speed.</td></tr>
+</table>
+<p>Right-click the bar to copy the statistics. The Raw output tab starts with the same numbers and the settings used.</p>
+<h3>Model states</h3>
+<table><tr><th>State</th><th>Meaning</th></tr>
+<tr><td>Installed</td><td>Ready to use.</td></tr>
+<tr><td>Not installed</td><td>Offered in the model list; press Download.</td></tr>
+<tr><td>Downloading n%</td><td>Being downloaded; Pause stops it, and it resumes later where it stopped.</td></tr>
+<tr><td>Paused</td><td>Partly downloaded; Resume carries on.</td></tr>
+<tr><td>Update available</td><td>A newer version is in the model list; the one you have keeps working until you press Update.</td></tr>
+<tr><td>Damaged</td><td>Files are missing or the wrong size; Delete and download again.</td></tr>
+<tr><td>Location offline</td><td>The folder in "Other model locations" cannot be reached (unplugged drive, NAS off). Automatic uses the next model.</td></tr>
+<tr><td>(not in the model list)</td><td>A model in the download folder that the list no longer offers; it stays usable and can be deleted.</td></tr>
+</table>
+
+<h2 id="trouble">Troubleshooting</h2>
+<div class="table-wrap"><table><tr><th>What you see</th><th>What to do</th></tr>
+<tr><td>"Some program files are missing" at start</td><td>Unzipping was incomplete, often because antivirus blocked a file. Delete the folder, unzip again (7-Zip is the most reliable) and run <code>verify-files.bat</code>. Windows Security &gt; Protection history shows any file it blocked.</td></tr>
+<tr><td>Windows SmartScreen "Windows protected your PC"</td><td>Unblock the zip before unzipping (Properties &gt; Unblock), or choose <em>More info &gt; Run anyway</em>. The only programs in the folder are the signed python.exe / pythonw.exe and the unmodified ffmpeg.exe.</td></tr>
+<tr><td>Nothing happens on start</td><td>Run <code>run-debug.bat</code> and read the console; the log is in <code>data\logs</code>. <code>smoke-test.bat</code> checks every library.</td></tr>
+<tr><td>"No installed model can transcribe…"</td><td>Download a model for that language in Options &gt; Transcription, or choose another language.</td></tr>
+<tr><td>Text invented in silence</td><td>Keep the invented-text filter on, add the phrase to its list; raise the speech threshold to 0.6.</td></tr>
+<tr><td>Words missing in a quiet recording</td><td>Keep Normalise volume on; lower the speech threshold to 0.35–0.4; try a larger Whisper model or Accurate speed.</td></tr>
+<tr><td>Names misspelled</td><td>Add them as hotwords (Whisper) or replacements (all models); see <a href="#names">Names from documents</a>.</td></tr>
+<tr><td>Slow on a long file</td><td>Use SenseVoiceSmall or Parakeet, Fast speed, background priority off; Stop and Resume if you need the PC.</td></tr>
+<tr><td>A word repeated where a job was resumed</td><td>The program removes a repeated word at the join (listed in Raw output); correct any that remain by hand.</td></tr>
+<tr><td>Playback is silent</td><td>Check the Windows default output device; playback uses PortAudio. Untick <em>Hear It in the Player</em> if the cleaned audio is too quiet.</td></tr>
+<tr><td>A downloaded model shows "Damaged"</td><td>Delete it and download again; the program checks every file, so a broken download is never used.</td></tr>
+</table></div>
+<p>For support, use <em>Options &gt; Advanced &gt; Copy diagnostic summary</em>; it holds no transcript text.</p>
+
+<h2 id="keys">Keyboard shortcuts</h2>
+<div class="table-wrap"><table><tr><th>Keys</th><th>Action</th></tr>
+<tr><td><kbd>Ctrl+O</kbd></td><td>Open Media</td></tr><tr><td><kbd>Ctrl+Shift+O</kbd></td><td>Open Output Folder</td></tr>
+<tr><td><kbd>Ctrl+S</kbd> / <kbd>Ctrl+Shift+S</kbd></td><td>Save Transcript / Save As</td></tr>
+<tr><td><kbd>Ctrl+E</kbd></td><td>Export</td></tr><tr><td><kbd>Ctrl+Shift+C</kbd></td><td>Copy Transcript</td></tr>
+<tr><td><kbd>Alt+Enter</kbd></td><td>File Properties</td></tr><tr><td><kbd>Ctrl+W</kbd> / <kbd>Ctrl+Q</kbd></td><td>Close / Exit</td></tr>
+<tr><td><kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd></td><td>Undo / Redo</td></tr>
+<tr><td><kbd>Ctrl+F</kbd> / <kbd>F3</kbd> / <kbd>Ctrl+H</kbd></td><td>Find / Find Next / Replace</td></tr>
+<tr><td><kbd>Ctrl+G</kbd></td><td>Go to Time</td></tr>
+<tr><td><kbd>F5</kbd> / <kbd>Esc</kbd></td><td>Transcribe or Resume / Stop</td></tr>
+<tr><td><kbd>F9</kbd> (<kbd>Space</kbd> outside the text)</td><td>Play / Pause</td></tr>
+<tr><td><kbd>F6</kbd></td><td>Replay sentence</td></tr>
+<tr><td><kbd>F7</kbd> / <kbd>F8</kbd></td><td>Previous / next unsure line</td></tr>
+<tr><td><kbd>Ctrl</kbd>+click</td><td>Play the sentence under the mouse</td></tr>
+<tr><td><kbd>Ctrl+Left</kbd> / <kbd>Ctrl+Right</kbd></td><td>Skip 5 s back / forward (outside the text)</td></tr>
+<tr><td><kbd>Ctrl+,</kbd></td><td>All Settings</td></tr><tr><td><kbd>F1</kbd> / <kbd>Ctrl+/</kbd></td><td>Help / Keyboard Shortcuts</td></tr>
+</table></div>
+<p class="def" style="margin-top:32px">Copyright © 2026 Neo Time Consulting. Provided “as is”, without warranty. Check transcripts against the
+recording before relying on them, and obtain any consent required to record or transcribe a conversation.</p>
+</main>
+</body>
+</html>
