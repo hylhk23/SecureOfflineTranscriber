@@ -4,7 +4,7 @@ Runs on Windows (py -3.13 build.py) or on Linux/macOS: everything is downloaded 
 No PyInstaller, no self-made .exe: the only programs in the package are python.exe / pythonw.exe from
 python.org (signed by the Python Software Foundation) and the unmodified ffmpeg.exe in ffmpeg\\.
 
-    python build.py                       -> dist\\SecureOfflineTranscriber-2.1.0-win64-portable.zip
+    python build.py                       -> dist\\SecureOfflineTranscriber-portable-win64.zip
     python build.py --ffmpeg-zip FILE     use an ffmpeg essentials zip you already downloaded
     python build.py --keep-qt             do not trim unused Qt modules
     python build.py --update              take the newest allowed library versions (writes requirements-lock.txt)
@@ -88,7 +88,7 @@ def main():
     a = ap.parse_args()
     sys.path.insert(0, APP_SRC)
     from sot import VERSION
-    name = f"SecureOfflineTranscriber-{VERSION}"
+    name = "SecureOfflineTranscriber"  # top folder, no version: the version shows in the window title and About box
     os.makedirs(a.cache, exist_ok=True)
     os.makedirs(a.out, exist_ok=True)
     stage = os.path.join(a.out, name)
@@ -224,7 +224,7 @@ def main():
     if a.no_zip:
         return
     log("9. Zip")
-    zp = os.path.join(a.out, f"{name}-win64-portable.zip")
+    zp = os.path.join(a.out, f"{name}-portable-win64.zip")  # no version, so releases/latest/download/... works
     with zipfile.ZipFile(zp, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for root, dirs, files in os.walk(stage):
             dirs.sort()

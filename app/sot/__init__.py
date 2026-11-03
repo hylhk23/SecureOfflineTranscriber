@@ -2,7 +2,7 @@
 
 APP_NAME = "Secure Offline Transcriber"
 APP_ID = "SecureOfflineTranscriber"
-VERSION = "2.1.2"
+VERSION = "2.1.3"
 PUBLISHER = "Neo Time Consulting"
 WEBSITE = "https://software.4u.hk"
 COPYRIGHT_YEAR = "2026"

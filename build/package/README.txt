@@ -1,4 +1,4 @@
-Secure Offline Transcriber 2.1.2 - portable edition for Windows 10 and 11 (64-bit)
+Secure Offline Transcriber 2.1.3 - portable edition for Windows 10 and 11 (64-bit)
 ================================================================================
 
 Offline speech-to-text: time-stamped transcripts from recorded audio and video files
@@ -6,15 +6,9 @@ Offline speech-to-text: time-stamped transcripts from recorded audio and video f
 Cantonese and Mandarin. No installation, no account, no internet needed after a model
 is downloaded.
 
-WHAT'S NEW IN 2.1.2
+WHAT'S NEW IN 2.1.3
 -------------------
-- Proofreading: the sentence being played is highlighted and followed; F6 replays it,
-  F7/F8 jump to lines Whisper was unsure about, F9 plays/pauses, playback 0.5x-1.5x.
-- Resume: Stop, a crash or a power cut no longer means starting again - press Resume.
-- Names from documents: names in an agenda, attendee list or e-mail (Word, Excel, PDF,
-  text) become hotwords (Edit > Add Names from Documents).
-- Noise reduction for noisy recordings (Transcribe > Noise Reduction).
-- The help page (F1) now explains every menu item and every setting.
+- Help and README.txt now say to unregister file types before removing the program.
 
 START
 -----
@@ -26,6 +20,24 @@ START
 4. Double-click run.bat.  create-shortcut.bat adds desktop and Start-menu shortcuts.
 5. First start: download the recommended models (about 0.7 GB) or add a folder where
    you already keep models (for example version 2.0's local_whisper folders).
+
+UPDATE
+------
+1. Download and extract the new zip.
+2. Before deleting the old folder, copy its data folder (settings and vocabulary) and
+   its models folder (downloaded models) into the new SecureOfflineTranscriber folder,
+   replacing the empty ones.
+Transcripts in Documents\SOT Transcripts are not affected.
+
+REMOVE
+------
+1. Close the program.
+2. If you registered it under Options > Advanced > File types, click Unregister first.
+   Otherwise Windows "Open with" keeps listing the program after its folder is gone.
+3. If you created shortcuts, run create-shortcut.bat /remove.
+4. Delete the SecureOfflineTranscriber folder.
+Your transcripts stay in Documents\SOT Transcripts. (Only if the program folder was
+read-only were settings kept in %LOCALAPPDATA%\SecureOfflineTranscriber; delete that too.)
 
 FILES
 -----

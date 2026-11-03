@@ -2,8 +2,8 @@ Secure Offline Transcriber - build kit
 ======================================
 
 What it makes
-  dist\SecureOfflineTranscriber-2.1.0\                 the portable folder
-  dist\SecureOfflineTranscriber-2.1.0-win64-portable.zip
+  dist\SecureOfflineTranscriber\                       the portable folder
+  dist\SecureOfflineTranscriber-portable-win64.zip   the release asset (no version in the name)
 
 How
   1. Install Python 3.10 or newer from python.org (only used to run pip; the package
@@ -25,7 +25,7 @@ Options
   --no-zip        build the folder only
 
 Check the result
-  dist\SecureOfflineTranscriber-2.1.0\smoke-test.bat   must print SMOKE TEST PASSED
+  dist\SecureOfflineTranscriber\smoke-test.bat         must print SMOKE TEST PASSED
   python -m pytest tests                              (headless tests of the program logic)
 
 No PyInstaller, no self-made .exe: this is what keeps the package clean on VirusTotal.
