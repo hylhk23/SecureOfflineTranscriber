@@ -91,6 +91,36 @@ Python programs packed into an `.exe` with tools such as PyInstaller are sometim
 
 ---
 
+## How it works
+
+The program runs as two processes on your PC. The window you work in never does the heavy work: each transcription is handed to a separate worker process, so the window stays responsive, and if a model fails, the text already made is kept.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/architecture-dark.png">
+    <img src="docs/images/architecture-light.png" alt="How Secure Offline Transcriber works: the main process (main window, transcript editor, player, names from documents, settings and journal, model manager) sends a job to the worker process, which decodes the audio with ffmpeg.exe, finds the speech with Silero voice detection and recognises it on the CPU with Whisper, SenseVoice, Parakeet or Moonshine, then sends the text back. Settings, jobs, logs and models stay in the program folder, transcripts go to Documents\SOT Transcripts, and the only network connection is a model download from Hugging Face, made on click and blocked in Offline Mode." width="760">
+  </picture>
+</p>
+
+**From recording to transcript**
+
+1. **Open a recording.** `ffmpeg.exe` reads the file's header to show its format, length and audio tracks.
+2. **Transcribe.** The window sends the job to the worker: the file and audio track, the language, the model, your vocabulary and settings, and where to start (the beginning, or the point where a stopped job ended).
+3. **Decode.** The worker has `ffmpeg.exe` convert the audio to 16 kHz mono, 30 minutes at a time, so even a three-hour recording does not fill the memory. Noise reduction, if switched on, is applied here.
+4. **Find speech.** The volume is evened out, and Silero voice detection cuts the audio into pieces of speech of up to 15 seconds. Silence never reaches the model, which is the main protection against invented text.
+5. **Choose the model.** With the language on Auto-detect, a language check runs on the first 15 minutes. With the model on Automatic, the first installed model in that language's order is used: SenseVoiceSmall for Cantonese and Mandarin, Whisper large-v3-turbo (then Parakeet) for English and French. The model loads once and stays loaded for the next file.
+6. **Recognise.** The model turns each piece into text on the CPU; Whisper also gets the names in your vocabulary set as hotwords. Each finished piece goes straight back to the window, so the text appears line by line with its time, while the progress bar and statistics update about once a second.
+7. **Keep the work safe.** While the job runs, the text so far is saved to `data\jobs` every 10 pieces or 3 seconds. After Stop, a crash or a power cut, **Resume** carries on from the end of that text.
+8. **Clean up and save.** When the job ends, the window removes known invented phrases and runaway repeats, applies your replacements, converts Chinese to the characters you chose and builds paragraphs. The transcript and your chosen formats are saved to `Documents\SOT Transcripts`.
+
+**Proofreading.** The player is part of the window: `ffmpeg.exe` streams the recording to your speakers through sounddevice, at 0.5× to 1.5× speed with natural pitch, and the transcript editor uses the playback time to highlight the sentence being spoken.
+
+**Names from documents.** The agenda, attendee list or e-mail you open is read on your PC, and simple rules pick out the names. You check them before they go into a vocabulary set.
+
+**The only network connection.** The model manager downloads model files from Hugging Face when you click **Download**, at a fixed version, and checks every file against its SHA-256 fingerprint. No audio or text is ever sent. Once a model is installed, Offline Mode switches on and blocks even that.
+
+---
+
 ## Install
 
 You need Windows 11 or 10 (64-bit). The download is a zip file of about 150 MB (420 MB once extracted). At the first start the program downloads the speech models you choose: the recommended set is about 0.7 GB, or 1.9 GB on a PC with 12 GB of memory or more (internet needed once).
