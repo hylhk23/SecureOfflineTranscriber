@@ -1,4 +1,4 @@
-Secure Offline Transcriber 2.1.4 - portable edition for Windows 10 and 11 (64-bit)
+Secure Offline Transcriber 2.2.0 - portable edition for Windows 10 and 11 (64-bit)
 ================================================================================
 
 Offline speech-to-text: time-stamped transcripts from recorded audio and video files
@@ -6,13 +6,11 @@ Offline speech-to-text: time-stamped transcripts from recorded audio and video f
 Cantonese and Mandarin. No installation, no account, no internet needed after a model
 is downloaded.
 
-WHAT'S NEW IN 2.1.4
+WHAT'S NEW IN 2.2.0
 -------------------
-- English first: the recommended download is now Whisper only (Whisper small, 486 MB,
-  or Whisper large-v3-turbo, 1.6 GB, on PCs with 12 GB of memory or more). To add
-  SenseVoiceSmall for Cantonese and Mandarin (240 MB), tick the box at the first start,
-  or set the language to Cantonese or Mandarin in Options > Transcription.
-- The model list and the help now start with the models for English.
+- The program now also runs on Macs with Apple silicon (M1 or newer, macOS 14 or
+  later): a separate portable download with the same features, on the same release page.
+- The help (F1) has a new section, On a Mac.
 
 START
 -----

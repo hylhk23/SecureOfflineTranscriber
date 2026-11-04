@@ -1,4 +1,4 @@
-Secure Offline Transcriber bundles the following third-party software. The full licence texts are in
+Secure Offline Transcriber bundles the following third-party software (Windows package first, then the macOS differences). The full licence texts are in
 THIRD-PARTY-LICENSES.txt inside the portable package (written by build\build.py from each library).
 
 Component                     Licence                                 Source
@@ -32,6 +32,17 @@ filelock, fsspec, packaging,  MIT / BSD-3-Clause / Apache-2.0 /       (dependenc
 
 The LGPL libraries are shipped as separate DLL/PYD files in python\Lib\site-packages and can be replaced by the
 user with compatible versions. Their source code is available at the addresses above.
+
+macOS package (Apple silicon) - the same libraries as macOS builds from the Python Package Index, plus:
+Python 3.13 for macOS         PSF License (built by the               https://github.com/astral-sh/python-build-standalone
+                              python-build-standalone project; also
+                              contains OpenSSL, SQLite, XZ, mpdecimal,
+                              Expat and Tcl/Tk under their licences)
+FFmpeg 9.0 (ffmpeg)           GPL-2.0-or-later (configured with        https://ffmpeg.org/  https://pypi.org/project/imageio-ffmpeg/
+                              --enable-gpl; unmodified binary from the
+                              imageio-ffmpeg 0.8.1 package; run as a
+                              separate program; see ffmpeg/SOURCE.txt)
+The LGPL Qt libraries are separate files in python/lib/python3.13/site-packages/PySide6 and can be replaced likewise.
 
 Speech models are NOT included. They are downloaded by the user from Hugging Face and keep their own licences:
 OpenAI Whisper and its CTranslate2 conversions (MIT), Distil-Whisper (MIT), SenseVoiceSmall by FunAudioLLM

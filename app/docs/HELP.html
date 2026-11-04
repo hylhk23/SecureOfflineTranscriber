@@ -34,7 +34,7 @@ td.v { white-space:nowrap; }
 </style>
 </head>
 <body>
-<header><div><h1>Secure Offline Transcriber 2.1.4</h1>
+<header><div><h1>Secure Offline Transcriber 2.2.0</h1>
 <p class="sub">Time-stamped transcripts of recorded audio and video, made entirely on this PC. English, French, Cantonese and Mandarin.</p></div></header>
 <nav>
 <b>Using the program</b>
@@ -44,7 +44,7 @@ td.v { white-space:nowrap; }
 <b>Reference</b>
 <a href="#menu-file">File menu</a><a href="#menu-edit">Edit menu</a><a href="#menu-transcribe">Transcribe menu</a><a href="#menu-options">Options menu</a><a href="#menu-help">Help menu</a>
 <a href="#opt-general">Options: General</a><a href="#opt-transcription">Transcription</a><a href="#opt-vocabulary">Vocabulary</a><a href="#opt-output">Output</a><a href="#opt-advanced">Advanced</a>
-<a href="#window">Window, statistics and model states</a><a href="#trouble">Troubleshooting</a><a href="#keys">Keyboard shortcuts</a>
+<a href="#window">Window, statistics and model states</a><a href="#trouble">Troubleshooting</a><a href="#keys">Keyboard shortcuts</a><a href="#mac">On a Mac</a>
 </nav>
 <main>
 
@@ -65,7 +65,7 @@ already keep models somewhere, for example the <code>local_whisper</code> folder
 </ol>
 <p>The window has three parts: <strong>Media input</strong> at the top (file, Transcribe button, queue, player), the
 <strong>Transcript</strong> and <strong>Raw output</strong> tabs in the middle, and the status line and statistics bar at the bottom. The title
-bar shows the program name and version, for example <em>Secure Offline Transcriber (2.1.4)</em>, and the progress while a job runs.</p>
+bar shows the program name and version, for example <em>Secure Offline Transcriber (2.2.0)</em>, and the progress while a job runs.</p>
 
 <h2 id="transcribe">Transcribe a recording</h2>
 <ol>
@@ -415,7 +415,7 @@ is not Whisper.</p>
 <tr><td>Environment check…</td><td>Windows version, CPU, cores, AVX2, memory, free disk, Python and library versions, installed models. <em>Copy</em> for support.</td></tr>
 <tr><td>Privacy check…</td><td>Offline Mode state, every folder the program uses, whether the temp folder is empty, and that no network port is open.</td></tr>
 <tr><td>Copy diagnostic summary</td><td>Both checks to the clipboard (no transcript text).</td></tr>
-<tr><td>File types: Register / Unregister</td><td>Adds the program to "Open with" for WAV, MP3, MP4, MKV and M4A, for your Windows account only. Click Unregister before deleting the program folder, or 'Open with' will keep listing it.</td></tr>
+<tr><td>File types: Register / Unregister</td><td>Windows only. Adds the program to "Open with" for WAV, MP3, MP4, MKV and M4A, for your Windows account only. Click Unregister before deleting the program folder, or 'Open with' will keep listing it.</td></tr>
 <tr><td>Show first-run guide again</td><td>The welcome page with the recommended model download.</td></tr>
 </table>
 
@@ -443,6 +443,26 @@ is not Whisper.</p>
 <tr><td>Location offline</td><td>The folder in "Other model locations" cannot be reached (unplugged drive, NAS off). Automatic uses the next model.</td></tr>
 <tr><td>(not in the model list)</td><td>A model in the download folder that the list no longer offers; it stays usable and can be deleted.</td></tr>
 </table>
+
+<h2 id="mac">On a Mac</h2>
+<p>The macOS package (Macs with Apple silicon, M1 or newer, on macOS 14 Sonoma or later) has the same menus, settings and
+features. The differences:</p>
+<ul>
+<li><strong>Starting:</strong> double-click <code>run.command</code> in the <code>SecureOfflineTranscriber</code> folder.
+<code>README.txt</code> in that folder explains the one-time step if macOS says the program cannot be opened.</li>
+<li><strong>Keys:</strong> where this help says <kbd>Ctrl</kbd>, press <kbd>Command</kbd> (<kbd>⌘</kbd>): <kbd>⌘O</kbd>
+opens a recording, <kbd>⌘</kbd>+click on a word plays its sentence. On most Mac keyboards the keys <kbd>F5</kbd> to <kbd>F9</kbd>
+need <kbd>fn</kbd> (<kbd>fn</kbd>+<kbd>F9</kbd> plays or pauses), unless <em>Use F1, F2, etc. keys as standard function
+keys</em> is on in <em>System Settings &gt; Keyboard</em>.</li>
+<li><strong>Folders:</strong> settings, logs and models stay inside the program folder, and transcripts go to
+<code>Documents/SOT Transcripts</code>, as on Windows. If the program folder is read-only, settings are kept in
+<code>~/Library/Application Support/SecureOfflineTranscriber</code>.</li>
+<li><strong>Open with:</strong> <em>File types: Register</em> is Windows only. Open a recording with <kbd>⌘O</kbd> or drag
+it onto the window.</li>
+<li><strong>Keep the Mac awake:</strong> uses macOS's own <code>caffeinate</code> while a job runs.</li>
+<li><strong>Remove:</strong> close the program and move the <code>SecureOfflineTranscriber</code> folder to the Bin. Your
+transcripts stay in <code>Documents/SOT Transcripts</code>.</li>
+</ul>
 
 <h2 id="trouble">Troubleshooting</h2>
 <div class="table-wrap"><table><tr><th>What you see</th><th>What to do</th></tr>

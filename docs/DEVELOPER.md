@@ -4,7 +4,7 @@ End-user download and installation: see the main [README](../README.md). User he
 
 ## About the code
 
-Secure Offline Transcriber is an offline speech-to-text program for Windows 10 and 11 (64-bit), written in Python with Qt (PySide6). It transcribes recorded audio and video files in English, French, Cantonese and Mandarin with Whisper (through faster-whisper / CTranslate2) and with SenseVoiceSmall, Parakeet and Moonshine (through sherpa-onnx / ONNX Runtime). FFmpeg (`ffmpeg.exe`) reads every audio and video format.
+Secure Offline Transcriber is an offline speech-to-text program for Windows 10 and 11 (64-bit) and for macOS 14 or later on Apple silicon, written in Python with Qt (PySide6). It transcribes recorded audio and video files in English, French, Cantonese and Mandarin with Whisper (through faster-whisper / CTranslate2) and with SenseVoiceSmall, Parakeet and Moonshine (through sherpa-onnx / ONNX Runtime). FFmpeg (`ffmpeg.exe`) reads every audio and video format.
 
 ---
 
@@ -70,6 +70,14 @@ It then removes every `.exe` except `python.exe`, `pythonw.exe` and `ffmpeg.exe`
 | `--keep-qt` | Keep every Qt module (if `smoke-test.bat` ever fails after trimming) |
 | `--ffmpeg-zip FILE` | Use an FFmpeg zip you already have |
 | `--no-zip` | Build the folder only |
+
+**The macOS package.** `python3 build/build_mac.py` (runs on Linux, macOS or Windows) makes `dist/SecureOfflineTranscriber-portable-macos-arm64.zip` with the same app folder and the same pinned libraries as macOS arm64 or universal2 wheels:
+
+- Python 3.13 from the python-build-standalone project (relocatable `install_only` build for `aarch64-apple-darwin`, SHA-256 pinned);
+- `ffmpeg`: FFmpeg 9.0 for Apple silicon, the unmodified binary inside the imageio-ffmpeg 0.8.1 wheel, with FFmpeg's licence files;
+- launchers `run.command`, `run-debug.command`, `smoke-test.command`, `verify-files.command` and a Mac `README.txt` (from `build/package-mac`).
+
+It keeps only the arm64 part of universal files (as `lipo -thin` does; each part keeps its own signature), removes Qt's developer files, tools and the SQL driver plugins, and then `build/macho_check.py` stops the build if a Mach-O file lacks arm64 code or a signature, links to a library outside the system and the package, or is a program other than `python3.13` and `ffmpeg`. The package needs macOS 14 or later (PySide6 6.12 and ONNX Runtime 1.29); Intel Macs are not supported because ONNX Runtime 1.29 has no x86_64 macOS build.
 
 **Why no PyInstaller.** Programs packed into an `.exe` with PyInstaller share a prebuilt launcher that some antivirus engines flag. The portable package instead runs the official `pythonw.exe`, signed by the Python Software Foundation, on plain `.py` files.
 

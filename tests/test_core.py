@@ -319,3 +319,38 @@ def test_first_run_offers_cantonese_mandarin():
     dlg.extra.setChecked(True)
     assert dlg.wants_cantonese_mandarin()
     assert app is not None
+
+
+# ---------------------------------------------------------------- macOS package
+def test_mac_memory_and_ports_parsing(monkeypatch):
+    import subprocess as _sp
+    from sot import modelmgr, system
+    vm = ("Mach Virtual Memory Statistics: (page size of 16384 bytes)\n"
+          "Pages free:                               100000.\nPages active:                             300000.\n"
+          "Pages inactive:                           50000.\nPages speculative:                        10000.\n")
+    lsof = ("COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME\n"
+            "python3 4242 me   7u  IPv4 0x1      0t0  TCP 127.0.0.1:5000 (LISTEN)\n")
+
+    class R:
+        def __init__(self, out):
+            self.stdout = out
+    monkeypatch.setattr(_sp, "run", lambda cmd, **kw: R(vm if cmd[0] == "vm_stat" else lsof if "-iTCP" in cmd else ""))
+    monkeypatch.setattr(os, "sysconf", lambda k: 16384 if k == "SC_PAGE_SIZE" else 1048576)
+    total, avail = modelmgr._mac_ram()
+    assert round(total) == 16 and round(avail, 2) == round(160000 * 16384 / 2 ** 30, 2)
+    assert system._mac_listening_ports() == ["TCP 127.0.0.1:5000"]
+
+
+def test_mac_fallback_folder(monkeypatch):
+    from sot import paths
+    monkeypatch.setattr(sys, "platform", "darwin")
+    assert paths.fallback_dir().endswith(os.path.join("Library", "Application Support", "SecureOfflineTranscriber"))
+
+
+def test_package_readmes_match_version():
+    from sot import VERSION
+    root = os.path.join(os.path.dirname(__file__), "..", "build")
+    for sub in ("package", "package-mac"):
+        text = open(os.path.join(root, sub, "README.txt"), encoding="utf-8").read()
+        assert text.startswith(f"Secure Offline Transcriber {VERSION} - portable edition")
+        assert f"WHAT'S NEW IN {VERSION}" in text

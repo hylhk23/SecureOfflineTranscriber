@@ -20,22 +20,39 @@ REQUIRED = ["PySide6", "shiboken6", "numpy", "ctranslate2", "faster_whisper", "o
 def check_package():
     """Portable package only: name the missing library folders before anything fails on them."""
     root = os.path.dirname(HERE)
-    sp = os.path.join(root, "python", "Lib", "site-packages")
+    mac = sys.platform == "darwin"
+    if mac:  # macOS package: python/lib/python3.13/site-packages and ffmpeg/ffmpeg
+        sp = os.path.join(root, "python", "lib", f"python{sys.version_info[0]}.{sys.version_info[1]}", "site-packages")
+        ff = os.path.join("ffmpeg", "ffmpeg")
+    else:
+        sp = os.path.join(root, "python", "Lib", "site-packages")
+        ff = os.path.join("ffmpeg", "ffmpeg.exe")
     if not os.path.isdir(os.path.join(root, "python")):
         return True  # running from source with an ordinary Python
     missing = [n for n in REQUIRED if not os.path.exists(os.path.join(sp, n))]
-    if not os.path.isfile(os.path.join(root, "ffmpeg", "ffmpeg.exe")):
-        missing.append("ffmpeg\\ffmpeg.exe")
+    if not os.path.isfile(os.path.join(root, ff)):
+        missing.append(ff)
     if not missing:
         return True
-    msg = ("Some program files are missing, so Secure Offline Transcriber cannot start:\n\n  "
-           + "\n  ".join(missing[:12]) + ("\n  ..." if len(missing) > 12 else "") +
-           "\n\nThe zip was not fully unzipped - often because antivirus blocked a file or unzipping was "
-           "stopped.\n\nDelete this folder, unzip the zip again (7-Zip is the most reliable), then run "
-           "verify-files.bat to check every file. Windows Security > Protection history shows any file it blocked.")
+    head = ("Some program files are missing, so Secure Offline Transcriber cannot start:\n\n  "
+            + "\n  ".join(missing[:12]) + ("\n  ..." if len(missing) > 12 else ""))
+    if mac:
+        msg = head + ("\n\nThe zip was not fully unzipped. Delete this folder, unzip the zip again, then run "
+                      "verify-files.command to check every file.")
+    else:
+        msg = head + ("\n\nThe zip was not fully unzipped - often because antivirus blocked a file or unzipping was "
+                      "stopped.\n\nDelete this folder, unzip the zip again (7-Zip is the most reliable), then run "
+                      "verify-files.bat to check every file. Windows Security > Protection history shows any file it "
+                      "blocked.")
     try:
-        import ctypes
-        ctypes.windll.user32.MessageBoxW(None, msg, "Secure Offline Transcriber", 0x10)
+        if mac:
+            import subprocess
+            subprocess.run(["osascript", "-e", "on run argv", "-e",
+                            'display dialog (item 1 of argv) with title "Secure Offline Transcriber" buttons {"OK"} '
+                            "with icon stop", "-e", "end run", msg], timeout=600)
+        else:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, msg, "Secure Offline Transcriber", 0x10)
     except Exception:
         pass
     print(msg, file=sys.__stderr__ or sys.stderr)

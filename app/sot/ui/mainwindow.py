@@ -7,7 +7,7 @@ import os
 import time
 
 from PySide6.QtCore import QMimeData, QSize, Qt, QTimer, QUrl
-from PySide6.QtGui import (QAction, QActionGroup, QDesktopServices, QFont, QIcon, QKeySequence, QShortcut,
+from PySide6.QtGui import (QAction, QActionGroup, QDesktopServices, QFont, QFontDatabase, QIcon, QKeySequence, QShortcut,
                            QTextCursor)
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QFileDialog, QFrame, QGroupBox,
                                QHBoxLayout, QHeaderView, QInputDialog, QLabel, QMainWindow, QMenu, QMessageBox,
@@ -188,7 +188,7 @@ class MainWindow(QMainWindow):
         self.raw = QPlainTextEdit()
         self.raw.setReadOnly(True)
         self.raw.setLineWrapMode(QPlainTextEdit.NoWrap)
-        mono = QFont("Consolas")
+        mono = QFont("Consolas") if os.name == "nt" else QFontDatabase.systemFont(QFontDatabase.FixedFont)
         mono.setStyleHint(QFont.Monospace)
         self.raw.setFont(mono)
         self.tabs.addTab(self.editor, "Transcript")
