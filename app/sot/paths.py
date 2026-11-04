@@ -2,7 +2,7 @@
 
 Layout of the portable folder (ROOT):
     ROOT/python/          embeddable Python
-    ROOT/ffmpeg/ffmpeg.exe
+    ROOT/ffmpeg/ffmpeg.exe       (ffmpeg on macOS)
     ROOT/app/             this code (APP_DIR)
     ROOT/models/          default model download folder
     ROOT/data/            settings.json (always) + default data folder (logs, temp, jobs)
@@ -35,7 +35,10 @@ def _writable(folder):
 
 
 def fallback_dir():
-    base = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), ".local", "share")
+    if sys.platform == "darwin":  # macOS package: ~/Library/Application Support
+        base = os.path.join(os.path.expanduser("~"), "Library", "Application Support")
+    else:
+        base = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), ".local", "share")
     return os.path.join(base, APP_ID)
 
 

@@ -70,6 +70,11 @@ def run_job(job, engines, emit, cancel):
     if job.get("background") and os.name == "nt":
         import ctypes
         ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x4000)
+    elif job.get("background"):
+        try:
+            os.nice(10)  # macOS / Linux: below normal priority
+        except OSError:
+            pass
     threads = int(s.get("transcription.threads")) or (os.cpu_count() or 4)
     compute = s.get("advanced.compute_type")
     total = float(job["duration"]) or 0.0

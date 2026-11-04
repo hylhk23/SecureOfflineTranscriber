@@ -9,6 +9,7 @@ import sys
 from . import APP_ID, APP_NAME, VERSION, paths
 
 IS_WIN = os.name == "nt"
+IS_MAC = sys.platform == "darwin"
 
 
 # ------------------------------------------------------------------ versions
@@ -55,6 +56,14 @@ def cpu_name():
             return winreg.QueryValueEx(k, "ProcessorNameString")[0].strip()
         except OSError:
             pass
+    if IS_MAC:
+        try:
+            out = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True,
+                                 timeout=5).stdout.strip()
+            if out:
+                return out
+        except Exception:
+            pass
     try:
         with open("/proc/cpuinfo") as f:
             for line in f:
@@ -72,6 +81,8 @@ def has_avx2():
             return bool(ctypes.windll.kernel32.IsProcessorFeaturePresent(40))  # PF_AVX2_INSTRUCTIONS_AVAILABLE
         except Exception:
             return None
+    if IS_MAC:
+        return None  # Apple Silicon has no AVX2; the ARM builds of the libraries are used
     try:
         with open("/proc/cpuinfo") as f:
             return " avx2" in f.read()
@@ -84,6 +95,8 @@ def windows_version():
         v = sys.getwindowsversion()
         name = "Windows 11" if v.build >= 22000 else "Windows 10" if v.major == 10 else f"Windows {v.major}.{v.minor}"
         return f"{name} (build {v.build})"
+    if IS_MAC:
+        return f"macOS {platform.mac_ver()[0]} ({platform.machine()})"
     return platform.platform()
 
 
@@ -106,8 +119,9 @@ def environment_report(settings, manager):
     from .modelmgr import free_disk, human_size, ram_gb
     total, avail = ram_gb()
     lines = [f"{APP_NAME} {VERSION}", f"Program folder: {paths.ROOT}", "",
-             f"Windows: {windows_version()}", f"CPU: {cpu_name()}", f"Cores: {os.cpu_count()}",
-             f"AVX2: {'yes' if has_avx2() else 'no' if has_avx2() is False else 'unknown'}",
+             f"{'Windows' if IS_WIN else 'System'}: {windows_version()}", f"CPU: {cpu_name()}",
+             f"Cores: {os.cpu_count()}",
+             f"AVX2: {'yes' if has_avx2() else 'no' if has_avx2() is False else 'not applicable (Apple Silicon)' if IS_MAC else 'unknown'}",
              f"RAM: {total:.1f} GB ({avail:.1f} GB free)",
              f"Model download folder: {settings.download_folder()}",
              f"Free disk on that drive: {human_size(free_disk(settings.download_folder()))}",
@@ -127,6 +141,8 @@ def environment_report(settings, manager):
 
 def listening_ports():
     """TCP/UDP ports this process listens on (should be none: the single-instance lock is a named pipe)."""
+    if IS_MAC:
+        return _mac_listening_ports()
     if not IS_WIN:
         return None
     try:
@@ -140,6 +156,22 @@ def listening_ports():
         parts = line.split()
         if len(parts) >= 4 and parts[-1] == pid and ("LISTENING" in parts or parts[0].upper() == "UDP"):
             ports.append(f"{parts[0]} {parts[1]}")
+    return ports
+
+
+def _mac_listening_ports():
+    """macOS: lsof lists this process's listening TCP sockets and its UDP sockets (exit code 1 = none)."""
+    ports = []
+    try:
+        for spec in (["-iTCP", "-sTCP:LISTEN"], ["-iUDP"]):
+            out = subprocess.run(["lsof", "-nP", "-a", "-p", str(os.getpid())] + spec, capture_output=True,
+                                 text=True, timeout=10).stdout
+            for line in out.splitlines()[1:]:
+                parts = line.split()
+                if len(parts) >= 9:
+                    ports.append(f"{parts[7]} {parts[8]}")
+    except Exception:
+        return None
     return ports
 
 
@@ -159,7 +191,7 @@ def privacy_report(settings):
         "Other model locations: " + (", ".join(settings.locations()) or "none"),
         f"Output folder: {settings.output_folder()}",
         f"Temp folder: {tmp} - " + ("empty" if not tmp_files else f"{len(tmp_files)} file(s); Clear temp now removes them"),
-        "Listening network ports: " + ("none" if ports == [] else "unknown (not Windows)" if ports is None
+        "Listening network ports: " + ("none" if ports == [] else "unknown" if ports is None
                                        else ", ".join(ports)),
         "Audio and transcripts never leave this PC. Logs hold file names and timings, never transcript text.",
     ]
@@ -167,7 +199,25 @@ def privacy_report(settings):
 
 
 # ------------------------------------------------------------------ keep awake (General tab)
+_caffeinate = None  # macOS: the caffeinate process that keeps the Mac awake
+
+
 def keep_awake(on):
+    global _caffeinate
+    if IS_MAC:
+        if on and _caffeinate is None:
+            try:
+                _caffeinate = subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())], stdin=subprocess.DEVNULL,
+                                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError:
+                _caffeinate = None
+        elif not on and _caffeinate is not None:
+            try:
+                _caffeinate.terminate()
+            except OSError:
+                pass
+            _caffeinate = None
+        return
     if not IS_WIN:
         return
     import ctypes

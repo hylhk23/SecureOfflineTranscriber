@@ -1479,7 +1479,8 @@ class AdvancedTab(QWidget):
         self.storage.setText(f"Model folder {human_size(system.folder_size(dl)) if os.path.isdir(dl) else '0 MB'} · "
                              f"temp folder {human_size(system.folder_size(tmp)) if os.path.isdir(tmp) else '0 MB'}")
         reg = system.file_types_registered()
-        self.ft_label.setText("'Open with': registered" if reg else "'Open with': not registered")
+        self.ft_label.setText(("'Open with': registered" if reg else "'Open with': not registered") if system.IS_WIN
+                              else "'Open with' registration: Windows only")
         self.b_reg.setEnabled(system.IS_WIN and not reg)
         self.b_unreg.setEnabled(system.IS_WIN and reg)
         model = self.dlg.work.get("transcription.model")

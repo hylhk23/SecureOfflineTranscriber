@@ -252,7 +252,11 @@ class ReportDialog(QDialog):
         box = QPlainTextEdit(text)
         box.setReadOnly(True)
         f = box.font()
-        f.setFamily("Consolas")
+        if os.name == "nt":
+            f.setFamily("Consolas")
+        else:
+            from PySide6.QtGui import QFontDatabase
+            f = QFontDatabase.systemFont(QFontDatabase.FixedFont)
         box.setFont(f)
         lay.addWidget(box)
         bb = QDialogButtonBox(QDialogButtonBox.Close)

@@ -54,11 +54,33 @@ def ram_gb():
             m.dwLength = ctypes.sizeof(MS)
             ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
             return m.ullTotalPhys / 2 ** 30, m.ullAvailPhys / 2 ** 30
+        if sys.platform == "darwin":
+            return _mac_ram()
         with open("/proc/meminfo") as f:
             info = {l.split(":")[0]: int(l.split()[1]) for l in f}
         return info["MemTotal"] / 2 ** 20, info.get("MemAvailable", 0) / 2 ** 20
     except Exception:
         return 8.0, 4.0
+
+
+def _mac_ram():
+    """macOS: total memory from sysconf; free = free + inactive + speculative pages from vm_stat."""
+    import re
+    import subprocess
+    total = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    try:
+        out = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=5).stdout
+        page = int(re.search(r"page size of (\d+) bytes", out).group(1))
+        counts = {}
+        for line in out.splitlines()[1:]:
+            if ":" in line:
+                k, v = line.split(":", 1)
+                if v.strip().rstrip(".").isdigit():
+                    counts[k.strip()] = int(v.strip().rstrip("."))
+        avail = page * sum(counts.get(k, 0) for k in ("Pages free", "Pages inactive", "Pages speculative"))
+    except Exception:
+        avail = total / 2
+    return total / 2 ** 30, avail / 2 ** 30
 
 
 def free_disk(folder):
