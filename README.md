@@ -24,7 +24,7 @@ Open a recording (WAV, MP3, M4A, MP4, MKV and most other audio and video files),
 | | |
 | --- | --- |
 | **Private** | Audio and transcripts never leave your PC. No account, no cloud service, no telemetry |
-| **Cantonese and three more languages** | Cantonese (also mixed with English), Mandarin, English and French; Chinese in Traditional (Hong Kong or Taiwan) or Simplified characters |
+| **English and three more languages** | English, French, Cantonese (also mixed with English) and Mandarin; Chinese in Traditional (Hong Kong or Taiwan) or Simplified characters |
 | **Fast proofreading** | The sentence being played is highlighted; jump to lines the model was unsure about; replay a sentence; slow playback to 0.75× |
 | **Resume long jobs** | Stop a long file, or survive a crash or power cut, and carry on where it stopped |
 | **Names spelled right** | Takes the names from your agenda, attendee list or e-mail and gives them to Whisper as hotwords |
@@ -46,8 +46,8 @@ Board meetings, HR interviews, client calls: many recordings should not be uploa
 - there is no account, analytics, crash reporting or update server. Logs hold file names and timings, never transcript text;
 - **Options > Advanced > Privacy check** lists every folder the program uses and confirms no network port is open.
 
-### Cantonese, Mandarin, English and French
-Choose the language, or let the program detect it. **Automatic** picks a suitable installed model for each language, for example SenseVoiceSmall for Cantonese (including Cantonese mixed with English) and Mandarin, and Whisper large-v3-turbo or Parakeet for English and French. Chinese text is written in Traditional (Hong Kong or Taiwan) or Simplified characters, as you prefer. How accurate a transcript is depends on the recording: clear audio from a nearby microphone gives the best results.
+### English, French, Cantonese and Mandarin
+Choose the language, or let the program detect it. **Automatic** picks a suitable installed model for each language, for example Whisper large-v3-turbo or Parakeet for English and French, and SenseVoiceSmall for Cantonese (including Cantonese mixed with English) and Mandarin. Chinese text is written in Traditional (Hong Kong or Taiwan) or Simplified characters, as you prefer. How accurate a transcript is depends on the recording: clear audio from a nearby microphone gives the best results.
 
 ### Check a transcript in a fraction of the time
 Checking a transcript against the recording is usually the slowest part of the work, so the player and the text work together:
@@ -108,7 +108,7 @@ The program runs as two processes on your PC. The window you work in never does 
 2. **Transcribe.** The window sends the job to the worker: the file and audio track, the language, the model, your vocabulary and settings, and where to start (the beginning, or the point where a stopped job ended).
 3. **Decode.** The worker has `ffmpeg.exe` convert the audio to 16 kHz mono, 30 minutes at a time, so even a three-hour recording does not fill the memory. Noise reduction, if switched on, is applied here.
 4. **Find speech.** The volume is evened out, and Silero voice detection cuts the audio into pieces of speech of up to 15 seconds. Silence never reaches the model, which is the main protection against invented text.
-5. **Choose the model.** With the language on Auto-detect, a language check runs on the first 15 minutes. With the model on Automatic, the first installed model in that language's order is used: SenseVoiceSmall for Cantonese and Mandarin, Whisper large-v3-turbo (then Parakeet) for English and French. The model loads once and stays loaded for the next file.
+5. **Choose the model.** With the language on Auto-detect, a language check runs on the first 15 minutes. With the model on Automatic, the first installed model in that language's order is used: Whisper large-v3-turbo (then Parakeet) for English and French, SenseVoiceSmall for Cantonese and Mandarin. The model loads once and stays loaded for the next file.
 6. **Recognise.** The model turns each piece into text on the CPU; Whisper also gets the names in your vocabulary set as hotwords. Each finished piece goes straight back to the window, so the text appears line by line with its time, while the progress bar and statistics update about once a second.
 7. **Keep the work safe.** While the job runs, the text so far is saved to `data\jobs` every 10 pieces or 3 seconds. After Stop, a crash or a power cut, **Resume** carries on from the end of that text.
 8. **Clean up and save.** When the job ends, the window removes known invented phrases and runaway repeats, applies your replacements, converts Chinese to the characters you chose and builds paragraphs. The transcript and your chosen formats are saved to `Documents\SOT Transcripts`.
