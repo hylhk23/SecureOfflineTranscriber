@@ -272,11 +272,19 @@ class ModelManager:
         sv = [m for m in self.installed() if m.kind == "sensevoice"]
         return sv[0] if sv else None
 
-    def recommended(self):
-        """Recommended set for this PC's memory, from the model list."""
+    def recommended(self, cantonese_mandarin=False):
+        """Recommended set for this PC's memory, from the model list (version 2.1.4: English first).
+        With cantonese_mandarin, the list's models for Cantonese and Mandarin are added (SenseVoiceSmall)."""
         rec = self.listdata["recommended"]
         total, _ = ram_gb()
-        return list(rec["at_or_above"] if total >= float(rec.get("ram_gb", 12)) else rec["below"])
+        out = list(rec["at_or_above"] if total >= float(rec.get("ram_gb", 12)) else rec["below"])
+        if cantonese_mandarin:
+            out += [m for m in self.recommended_cantonese_mandarin() if m not in out]
+        return out
+
+    def recommended_cantonese_mandarin(self):
+        """Models the list adds for people who also transcribe Cantonese or Mandarin (may be empty)."""
+        return [m for m in self.listdata["recommended"].get("cantonese_mandarin", []) if m in self.by_id]
 
     # ---------------------------------------------------------------- downloads
     def opener(self):

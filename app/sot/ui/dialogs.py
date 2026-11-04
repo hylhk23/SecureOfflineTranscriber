@@ -276,16 +276,20 @@ def file_properties_text(info):
 class FirstRunDialog(QDialog):
     """FR-MOD-01: no model installed yet."""
 
-    def __init__(self, parent, rec_size):
+    def __init__(self, parent, rec_size, rec_names="", extra_text=""):
         super().__init__(parent)
         self.setWindowTitle("Welcome")
         self.choice = None
         lay = QVBoxLayout(self)
-        msg = QLabel(f"<b>No model installed yet.</b><br><br>Download the recommended set ({rec_size}), "
+        what = f"{rec_names}, {rec_size}" if rec_names else rec_size
+        msg = QLabel(f"<b>No model installed yet.</b><br><br>Download the recommended set ({what}), "
                      "or add a folder where you already keep models.<br><br>"
                      "Models are downloaded once; after that everything runs offline on this PC.")
         msg.setWordWrap(True)
         lay.addWidget(msg)
+        self.extra = QCheckBox(extra_text) if extra_text else None  # version 2.1.4: English first
+        if self.extra:
+            lay.addWidget(self.extra)
         row = QHBoxLayout()
         for label, key in (("Download recommended set", "download"), ("Add a model folder…", "folder"),
                            ("Later", None)):
@@ -297,3 +301,6 @@ class FirstRunDialog(QDialog):
     def _pick(self, k):
         self.choice = k
         self.accept()
+
+    def wants_cantonese_mandarin(self):
+        return bool(self.extra and self.extra.isChecked())

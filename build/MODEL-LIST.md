@@ -39,7 +39,7 @@ When a new program version brings a newer built-in list, it replaces an older im
 | `format` | `2` (the file layout this program reads) |
 | `list_version` | Date-style version, e.g. `"2026.11.03"`; a list older than the built-in one is refused |
 | `min_app_version` | Oldest program version that may use this list, e.g. `"2.1.1"` |
-| `recommended` | `ram_gb` (12), `below` and `at_or_above`: the model ids of the recommended set for PCs with less / more memory |
+| `recommended` | `ram_gb` (12), `below` and `at_or_above`: the model ids of the recommended set for PCs with less / more memory; optional `cantonese_mandarin`: models added when the user transcribes Cantonese or Mandarin (from version 2.1.4; older versions ignore it) |
 | `automatic` | For `en`, `fr`, `yue`, `zh`: model ids in the order Automatic tries them (the first installed one is used) |
 | `models` | The list of models (below) |
 

@@ -123,8 +123,10 @@ def validate(data):
     if not isinstance(rec, dict) or not rec.get("below") or not rec.get("at_or_above"):
         err.append("recommended must have 'ram_gb', 'below' and 'at_or_above'.")
     else:
-        for k in ("below", "at_or_above"):
-            for mid in rec.get(k, []):
+        if not isinstance(rec.get("cantonese_mandarin", []), list):
+            err.append("recommended.cantonese_mandarin must be a list of model ids.")
+        for k in ("below", "at_or_above", "cantonese_mandarin"):
+            for mid in rec.get(k, []) if isinstance(rec.get(k, []), list) else []:
                 if mid not in ids:
                     err.append(f"recommended.{k}: {mid} is not in the list.")
         if not isinstance(rec.get("ram_gb", 12), (int, float)):

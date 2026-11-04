@@ -280,3 +280,42 @@ def test_names_read_xlsx_and_docx(tmp_path):
     assert "Nadia Ferro" in text
     with pytest.raises(names.DocumentError):
         names.read_document(str(tmp_path / "c.msg"))
+
+
+# ---------------------------------------------------------------- 2.1.4: English first
+def test_recommended_set_is_english_first(monkeypatch):
+    from sot import modelmgr
+    mgr = modelmgr.ModelManager(Settings(values={}))
+    for gb, base in ((8.0, "whisper-small"), (16.0, "whisper-large-v3-turbo")):
+        monkeypatch.setattr(modelmgr, "ram_gb", lambda gb=gb: (gb, gb / 2))
+        assert mgr.recommended() == [base]
+        assert mgr.recommended(cantonese_mandarin=True) == [base, "sensevoice-small-int8"]
+    assert "en" in mgr.catalog[0]["languages"]
+
+
+def test_bad_cantonese_mandarin_entry_is_refused():
+    d = _copy.deepcopy(_builtin())
+    d["recommended"]["cantonese_mandarin"] = ["no-such-model"]
+    with pytest.raises(modellist.ListError) as e:
+        modellist.validate(d)
+    assert "not in the list" in str(e.value)
+
+
+def test_help_quick_guide_starts_with_english():
+    import re as _re
+    html = open(os.path.join(os.path.dirname(__file__), "..", "app", "docs", "HELP.html"), encoding="utf-8").read()
+    guide = html[html.index('id="choose"'):]
+    first = _re.search(r"<tr><td>(.*?)</td>", guide).group(1)
+    assert first.startswith("English")
+
+
+def test_first_run_offers_cantonese_mandarin():
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+    from sot.ui.dialogs import FirstRunDialog
+    app = QApplication.instance() or QApplication([])
+    dlg = FirstRunDialog(None, "486 MB", "Whisper small", "I also transcribe Cantonese or Mandarin: add SenseVoiceSmall (240 MB)")
+    assert dlg.extra is not None and not dlg.wants_cantonese_mandarin()
+    dlg.extra.setChecked(True)
+    assert dlg.wants_cantonese_mandarin()
+    assert app is not None

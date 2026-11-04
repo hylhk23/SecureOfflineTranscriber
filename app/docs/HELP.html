@@ -34,7 +34,7 @@ td.v { white-space:nowrap; }
 </style>
 </head>
 <body>
-<header><div><h1>Secure Offline Transcriber 2.1.3</h1>
+<header><div><h1>Secure Offline Transcriber 2.1.4</h1>
 <p class="sub">Time-stamped transcripts of recorded audio and video, made entirely on this PC. English, French, Cantonese and Mandarin.</p></div></header>
 <nav>
 <b>Using the program</b>
@@ -58,13 +58,14 @@ can write to, for example <code>D:\Tools\SecureOfflineTranscriber</code> (not <c
 while unzipping).</li>
 <li>Double-click <code>run.bat</code>. <code>create-shortcut.bat</code> adds shortcuts on the desktop and in the Start menu; to pin the
 program to the taskbar, start it, right-click its taskbar icon and choose <em>Pin to taskbar</em>.</li>
-<li>At the first start no speech model is installed yet. Choose <strong>Download recommended set</strong> (about 0.7 GB, or 1.9 GB on
-a PC with 12 GB of memory or more), or <strong>Add a model folder</strong> if you already keep models somewhere, for example the
-<code>local_whisper</code> folders of version 2.0.</li>
+<li>At the first start no speech model is installed yet. Choose <strong>Download recommended set</strong>: Whisper small (486 MB), or
+Whisper large-v3-turbo (1.6 GB) on a PC with 12 GB of memory or more. If you also transcribe Cantonese or Mandarin, tick
+<em>I also transcribe Cantonese or Mandarin</em> to add SenseVoiceSmall (240 MB). Or choose <strong>Add a model folder</strong> if you
+already keep models somewhere, for example the <code>local_whisper</code> folders of version 2.0.</li>
 </ol>
 <p>The window has three parts: <strong>Media input</strong> at the top (file, Transcribe button, queue, player), the
 <strong>Transcript</strong> and <strong>Raw output</strong> tabs in the middle, and the status line and statistics bar at the bottom. The title
-bar shows the program name and version, for example <em>Secure Offline Transcriber (2.1.3)</em>, and the progress while a job runs.</p>
+bar shows the program name and version, for example <em>Secure Offline Transcriber (2.1.4)</em>, and the progress while a job runs.</p>
 
 <h2 id="transcribe">Transcribe a recording</h2>
 <ol>
@@ -172,14 +173,14 @@ formats from the edited text:</p>
 <p><em>Options &gt; Transcription</em> holds the model manager. Each model is downloaded once from Hugging Face at a fixed version, and every
 file is checked by SHA-256; after that everything runs offline.</p>
 <table><tr><th>Model</th><th>Size</th><th>Languages</th><th>Good for</th></tr>
-<tr><td>SenseVoiceSmall int8</td><td>240 MB</td><td>Cantonese, Mandarin, English</td><td>Very fast; the best choice for Cantonese and mixed Cantonese–English. No hotwords, no amber lines.</td></tr>
-<tr><td>Whisper small</td><td>486 MB</td><td>All four</td><td>Modest PCs; hotwords work; weak at Cantonese.</td></tr>
 <tr><td>Whisper large-v3-turbo</td><td>1.6 GB</td><td>All four</td><td>Best English and French on PCs with 12 GB of memory or more; several times slower than small.</td></tr>
-<tr><td>Whisper large-v3</td><td>3.1 GB</td><td>All four</td><td>Hardest Cantonese passages; slow on a CPU.</td></tr>
-<tr><td>Whisper medium / base / tiny</td><td>1.5 GB / 148 MB / 78 MB</td><td>All four</td><td>Medium is rarely better than turbo; base and tiny are for very old PCs and quick tests.</td></tr>
-<tr><td>Distil-Whisper large-v3.5</td><td>1.5 GB</td><td>English</td><td>Fast, accurate English only.</td></tr>
+<tr><td>Whisper small</td><td>486 MB</td><td>All four</td><td>Modest PCs; hotwords work; weak at Cantonese.</td></tr>
 <tr><td>Parakeet-TDT-0.6B-v3 int8</td><td>670 MB</td><td>English, French</td><td>Fast and accurate English and French; no hotwords.</td></tr>
-<tr><td>Moonshine tiny / base int8</td><td>124 / 287 MB</td><td>English</td><td>The fastest English on light PCs.</td></tr></table>
+<tr><td>Distil-Whisper large-v3.5</td><td>1.5 GB</td><td>English</td><td>Fast, accurate English only.</td></tr>
+<tr><td>Moonshine tiny / base int8</td><td>124 / 287 MB</td><td>English</td><td>The fastest English on light PCs.</td></tr>
+<tr><td>SenseVoiceSmall int8</td><td>240 MB</td><td>Cantonese, Mandarin, English</td><td>Very fast; the best choice for Cantonese and mixed Cantonese–English. No hotwords, no amber lines.</td></tr>
+<tr><td>Whisper large-v3</td><td>3.1 GB</td><td>All four</td><td>Hardest Cantonese passages; slow on a CPU.</td></tr>
+<tr><td>Whisper medium / base / tiny</td><td>1.5 GB / 148 MB / 78 MB</td><td>All four</td><td>Medium is rarely better than turbo; base and tiny are for very old PCs and quick tests.</td></tr></table>
 <ul>
 <li><strong>Model download folder:</strong> <em>Change…</em> offers "Move my models there" or "Just use the new folder"; the old folder is removed only
 after every file has been copied and checked.</li>
@@ -205,10 +206,10 @@ chose). Logs hold file names and timings, never transcript text, and are kept 7 
 <h2 id="choose">Which settings to change: a quick guide</h2>
 <div class="table-wrap"><table>
 <tr><th>Situation</th><th>Try this</th></tr>
-<tr><td>Cantonese or Cantonese mixed with English</td><td>Language <em>Cantonese</em> (or Auto-detect) with SenseVoiceSmall. Choose Traditional (Hong Kong) or Simplified in <em>Options &gt; Transcription</em>.</td></tr>
-<tr><td>Names and company names come out wrong</td><td>Use Whisper; add the names as hotwords (<a href="#names">Names from documents</a>); add fixed misspellings as replacements.</td></tr>
 <tr><td>English or French meeting, best quality</td><td>Whisper large-v3-turbo (12 GB of memory or more) or Parakeet; Speed <em>Accurate</em> if time allows.</td></tr>
+<tr><td>Names and company names come out wrong</td><td>Use Whisper; add the names as hotwords (<a href="#names">Names from documents</a>); add fixed misspellings as replacements.</td></tr>
 <tr><td>Long file on a slow PC</td><td>SenseVoiceSmall or Parakeet; Speed <em>Fast</em>; Stop and Resume when you need the PC.</td></tr>
+<tr><td>Cantonese or Cantonese mixed with English</td><td>Language <em>Cantonese</em> (or Auto-detect) with SenseVoiceSmall (Options &gt; Transcription, or tick it at the first start). Choose Traditional (Hong Kong) or Simplified in <em>Options &gt; Transcription</em>.</td></tr>
 <tr><td>Café or conference-floor recording</td><td><a href="#noise">Noise reduction</a> Light; check with <em>Hear It in the Player</em>.</td></tr>
 <tr><td>Quiet speakers are missed</td><td>Keep <em>Normalise volume</em> on; lower <em>Speech threshold</em> to 0.35–0.4.</td></tr>
 <tr><td>Text appears where nobody spoke ("Thank you for watching")</td><td>Keep the invented-text filter on and add the phrase to its list; raise <em>Speech threshold</em> to 0.6.</td></tr>
@@ -321,8 +322,8 @@ defaults</em> asks first and never deletes models, transcripts, vocabulary sets 
 <tr id="set-transcription.locations"><td>Other model locations</td><td>List of folders · <strong>empty</strong></td><td>Folders searched for models that are used where they are (another drive, NAS, USB stick). <em>Refresh</em> searches again; <em>Remove</em> stops using a folder without deleting anything.</td></tr>
 </table></div>
 <p><strong>Models list (model manager):</strong> each row shows languages, size, licence, location and status, with <em>Download</em>,
-<em>Pause</em> (or <em>Resume</em>, <em>Update</em>) and <em>Delete</em>. <em>Download recommended set for this PC</em> fetches the set for your PC's
-memory. <em>Import model list…</em> / <em>Use built-in list</em> manage the list of models offered. <em>Add model from folder…</em>,
+<em>Pause</em> (or <em>Resume</em>, <em>Update</em>) and <em>Delete</em>. <em>Download recommended set for this PC</em> fetches the Whisper model for your PC's
+memory, plus SenseVoiceSmall when <em>Language</em> is Cantonese or Mandarin. <em>Import model list…</em> / <em>Use built-in list</em> manage the list of models offered. <em>Add model from folder…</em>,
 <em>Import model pack…</em> and <em>Export model pack…</em> bring models from folders or other PCs. Delete removes only models in the download
 folder; models in other locations are never deleted.</p>
 

@@ -1,4 +1,4 @@
-Secure Offline Transcriber 2.1.3 - portable edition for Windows 10 and 11 (64-bit)
+Secure Offline Transcriber 2.1.4 - portable edition for Windows 10 and 11 (64-bit)
 ================================================================================
 
 Offline speech-to-text: time-stamped transcripts from recorded audio and video files
@@ -6,9 +6,13 @@ Offline speech-to-text: time-stamped transcripts from recorded audio and video f
 Cantonese and Mandarin. No installation, no account, no internet needed after a model
 is downloaded.
 
-WHAT'S NEW IN 2.1.3
+WHAT'S NEW IN 2.1.4
 -------------------
-- Help and README.txt now say to unregister file types before removing the program.
+- English first: the recommended download is now Whisper only (Whisper small, 486 MB,
+  or Whisper large-v3-turbo, 1.6 GB, on PCs with 12 GB of memory or more). To add
+  SenseVoiceSmall for Cantonese and Mandarin (240 MB), tick the box at the first start,
+  or set the language to Cantonese or Mandarin in Options > Transcription.
+- The model list and the help now start with the models for English.
 
 START
 -----
@@ -18,8 +22,10 @@ START
    (not C:\Program Files - the program keeps its settings in its own folder).
 3. Optional: double-click verify-files.bat - it checks every file arrived complete.
 4. Double-click run.bat.  create-shortcut.bat adds desktop and Start-menu shortcuts.
-5. First start: download the recommended models (about 0.7 GB) or add a folder where
-   you already keep models (for example version 2.0's local_whisper folders).
+5. First start: download the recommended model (Whisper, 0.5 to 1.6 GB depending on
+   your PC's memory; tick the box to add SenseVoiceSmall for Cantonese and Mandarin),
+   or add a folder where you already keep models (for example version 2.0's
+   local_whisper folders).
 
 UPDATE
 ------

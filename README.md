@@ -47,7 +47,7 @@ Board meetings, HR interviews, client calls: many recordings should not be uploa
 - **Options > Advanced > Privacy check** lists every folder the program uses and confirms no network port is open.
 
 ### English, French, Cantonese and Mandarin
-Choose the language, or let the program detect it. **Automatic** picks a suitable installed model for each language, for example Whisper large-v3-turbo or Parakeet for English and French, and SenseVoiceSmall for Cantonese (including Cantonese mixed with English) and Mandarin. Chinese text is written in Traditional (Hong Kong or Taiwan) or Simplified characters, as you prefer. How accurate a transcript is depends on the recording: clear audio from a nearby microphone gives the best results.
+Choose the language, or let the program detect it. **Automatic** picks a suitable installed model for each language, for example Whisper large-v3-turbo or Parakeet for English and French, and SenseVoiceSmall for Cantonese (including Cantonese mixed with English) and Mandarin; SenseVoiceSmall is an optional 240 MB download. Chinese text is written in Traditional (Hong Kong or Taiwan) or Simplified characters, as you prefer. How accurate a transcript is depends on the recording: clear audio from a nearby microphone gives the best results.
 
 ### Check a transcript in a fraction of the time
 Checking a transcript against the recording is usually the slowest part of the work, so the player and the text work together:
@@ -123,7 +123,7 @@ The program runs as two processes on your PC. The window you work in never does 
 
 ## Install
 
-You need Windows 11 or 10 (64-bit). The download is a zip file of about 150 MB (420 MB once extracted). At the first start the program downloads the speech models you choose: the recommended set is about 0.7 GB, or 1.9 GB on a PC with 12 GB of memory or more (internet needed once).
+You need Windows 11 or 10 (64-bit). The download is a zip file of about 150 MB (420 MB once extracted). At the first start the program downloads the speech model you choose (internet needed once): the recommended model is Whisper small (486 MB), or Whisper large-v3-turbo (1.6 GB) on a PC with 12 GB of memory or more. For Cantonese or Mandarin, tick the box to add SenseVoiceSmall (240 MB).
 
 ### Option 1: manual download
 
@@ -157,7 +157,7 @@ certutil -hashfile SecureOfflineTranscriber-portable-win64.zip SHA256
 
 ### First use
 
-1. At the first start, choose **Download recommended set** (or **Add a model folder** if you already keep Whisper or SenseVoice models somewhere).
+1. At the first start, choose **Download recommended set**. Tick **I also transcribe Cantonese or Mandarin** if you need those languages. Or choose **Add a model folder** if you already keep Whisper or SenseVoice models somewhere.
 2. Open a recording with **Open...** or by dropping it on the window. The **Transcribe** button shows which model and language will be used.
 3. Press **Transcribe** (F5). The transcript and your chosen formats (text with times and SRT subtitles, by default) are saved to `Documents\SOT Transcripts`.
 4. Proofread with **F9** (play/pause), **F6** (replay the sentence) and **F8** (next unsure line), then **File > Export** for Word or other formats.

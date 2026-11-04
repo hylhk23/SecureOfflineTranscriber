@@ -1658,7 +1658,14 @@ class MainWindow(QMainWindow):
     def first_run(self):
         rec = self.manager.recommended()
         size = sum(self.manager.by_id[c]["size"] for c in rec)
-        dlg = FirstRunDialog(self, human_size(size))
+        names = " + ".join(self.manager.by_id[c]["name"] for c in rec)
+        extra = [c for c in self.manager.recommended_cantonese_mandarin() if c not in rec]
+        extra_text = ""
+        if extra:
+            extra_text = (f"I also transcribe Cantonese or Mandarin: add "
+                          f"{' + '.join(self.manager.by_id[c]['name'] for c in extra)} "
+                          f"({human_size(sum(self.manager.by_id[c]['size'] for c in extra))})")
+        dlg = FirstRunDialog(self, human_size(size), names, extra_text)
         dlg.exec()
         self.settings.set("general.first_run_done", True)
         self._save_settings()
@@ -1667,7 +1674,8 @@ class MainWindow(QMainWindow):
                 self._set_quick("advanced.offline", False)
             opt = OptionsDialog(self, self.settings, self.manager, 1)
             opt.applied.connect(self._options_applied)
-            QTimer.singleShot(100, opt.trans.download_recommended)
+            cm = dlg.wants_cantonese_mandarin()
+            QTimer.singleShot(100, lambda: opt.trans.download_recommended(cm))
             opt.exec()
             self.refresh_models()
             self.update_actions()

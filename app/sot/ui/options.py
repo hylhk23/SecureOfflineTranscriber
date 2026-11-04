@@ -459,7 +459,8 @@ class TranscriptionTab(QWidget):
         self.list_problem.setWordWrap(True)
         gv.addWidget(self.list_problem)
         rh = QHBoxLayout()
-        self.rec_btn = button("Download recommended set", self.download_recommended)
+        self.rec_btn = button("Download recommended set", lambda: self.download_recommended())
+        self.lang.currentIndexChanged.connect(self._update_rec_btn)  # Cantonese/Mandarin adds SenseVoiceSmall
         rh.addWidget(self.rec_btn)
         self.disk = QLabel()
         rh.addStretch(1)
@@ -563,18 +564,16 @@ class TranscriptionTab(QWidget):
         self.locs.clear()
         for loc in self.dlg.settings.locations():
             self.locs.addItem(loc)
-        rec = self.mgr.recommended()
-        size = sum(self.mgr.by_id[c]["size"] for c in rec)
-        names = " + ".join(self.mgr.by_id[c]["name"] for c in rec)
-        self.rec_btn.setText(f"Download recommended set for this PC ({human_size(size)})")
-        self.rec_btn.setToolTip(names)
+        self._update_rec_btn()
         self.build_table()
 
     def build_table(self):
         rank = {"Must": 0, "Should": 1, "Could": 2}
+        pos = {e["id"]: i for i, e in enumerate(self.mgr.catalog)}  # the model list's order (English first)
         mdl = sorted(self.mgr.models.values(),
                      key=lambda m: (m.source != "download", not m.installed,
-                                    rank.get((m.entry or {}).get("offered", "Could"), 2), m.name))
+                                    rank.get((m.entry or {}).get("offered", "Could"), 2),
+                                    pos.get((m.entry or {}).get("id"), len(pos)), m.name))
         self.table.setRowCount(len(mdl))
         self.rows = {}
         for r, m in enumerate(mdl):
@@ -726,8 +725,20 @@ class TranscriptionTab(QWidget):
             return
         self.build_table()
 
-    def download_recommended(self):
-        rec = [c for c in self.mgr.recommended() if not self.mgr.by_catalog(c)]
+    def _cantonese_mandarin(self):
+        """The recommended set adds the Cantonese/Mandarin models when that is the chosen language."""
+        return self.lang.currentData() in ("yue", "zh")
+
+    def _update_rec_btn(self, *_):
+        rec = self.mgr.recommended(self._cantonese_mandarin())
+        self.rec_btn.setText(f"Download recommended set for this PC "
+                             f"({human_size(sum(self.mgr.by_id[c]['size'] for c in rec))})")
+        self.rec_btn.setToolTip(" + ".join(self.mgr.by_id[c]["name"] for c in rec))
+
+    def download_recommended(self, cantonese_mandarin=None):
+        if cantonese_mandarin is None:
+            cantonese_mandarin = self._cantonese_mandarin()
+        rec = [c for c in self.mgr.recommended(cantonese_mandarin) if not self.mgr.by_catalog(c)]
         if not rec:
             QMessageBox.information(self, "Models", "The recommended set is already installed.")
             return
