@@ -1,4 +1,4 @@
-"""Model manager (section 6, FR-MOD-01..14): catalogue, scanning, downloads, other locations, packs."""
+"""Model manager: catalogue, scanning, downloads, other locations, packs."""
 import hashlib
 import json
 import os
@@ -274,7 +274,7 @@ class ModelManager:
         return None
 
     def candidates(self, language):
-        """Installed models for a language in Automatic order (section 6 table), then any that fit."""
+        """Installed models for a language in Automatic order, then any that fit."""
         order = []
         for cid in self.automatic_order(language):
             m = self.by_catalog(cid)
@@ -380,7 +380,7 @@ class ModelManager:
                                 out.write(chunk)
                                 have += len(chunk)
                                 state["done"] = base_done + have
-                # verify (FR-MOD-02)
+                # verify
                 h = hashlib.sha256()
                 with open(part, "rb") as fh:
                     for chunk in iter(lambda: fh.read(4 << 20), b""):
@@ -425,7 +425,7 @@ class ModelManager:
         self.settings.set("transcription.location_cache", cache)
 
     def add_model_folder(self, folder, copy, progress=None):
-        """Add one model folder (FR-MOD-08). Returns (kind, None) or (None, missing files)."""
+        """Add one model folder. Returns (kind, None) or (None, missing files)."""
         kind, info = detect_type(folder)
         if not kind:
             return None, info
@@ -451,7 +451,7 @@ class ModelManager:
             os.makedirs(new, exist_ok=True)
         self.settings.set("transcription.download_folder", paths.to_stored(new))
 
-    # ---------------------------------------------------------------- packs (FR-MOD-11)
+    # ---------------------------------------------------------------- packs
     def export_pack(self, keys, zip_path, progress=None):
         manifest = {"app": "SecureOfflineTranscriber", "models": []}
         files = []
@@ -524,7 +524,7 @@ def _folder_size(folder):
 
 
 def copy_tree(src, dst, progress=None):
-    """Copy with progress, then check sizes; raise before anything is deleted (FR-MOD-05, FR-OPT-05)."""
+    """Copy with progress, then check sizes; raise before anything is deleted."""
     items = []
     for root, _, files in os.walk(src):
         for f in files:

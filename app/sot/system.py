@@ -1,5 +1,5 @@
-"""Windows integration and diagnostics: environment and privacy checks (FR-ADV-03/04), keep-awake,
-'Open with' registration (Should), job journal (FR-ASR-08)."""
+"""Windows integration and diagnostics: environment and privacy checks, keep-awake,
+'Open with' registration, job journal."""
 import json
 import os
 import platform
@@ -225,7 +225,7 @@ def keep_awake(on):
     ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | (ES_SYSTEM_REQUIRED if on else 0))
 
 
-# ------------------------------------------------------------------ "Open with" (Should)
+# ------------------------------------------------------------------ "Open with"
 EXTS = (".wav", ".mp3", ".mp4", ".mkv", ".m4a")
 PROGID = APP_ID + ".media"
 
@@ -291,7 +291,7 @@ def _notify_shell():
         pass
 
 
-# ------------------------------------------------------------------ job journal (FR-ASR-08)
+# ------------------------------------------------------------------ job journal
 def journal_path(settings):
     return os.path.join(settings.data_folder(), "jobs", "current.json")
 

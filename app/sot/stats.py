@@ -1,4 +1,4 @@
-"""Statistics bar text (section 11), shared by the window, the Raw output header and the TXT/DOCX header."""
+"""Statistics bar text, shared by the window, the Raw output header and the TXT/DOCX header."""
 from .media import fmt_clock
 from .modelmgr import LANG_NAMES
 

@@ -1,4 +1,4 @@
-"""Everything that touches ffmpeg.exe (FR-PKG-04): header report, decoding, player stream.
+"""Everything that touches ffmpeg.exe: header report, decoding, player stream.
 
 ffmpeg.exe runs with no console window, stdin closed and -nostdin."""
 import os
@@ -181,7 +181,7 @@ def sha256_file(path, chunk=4 << 20):
 
 
 class PcmStream:
-    """ffmpeg.exe streaming 16-bit stereo PCM from a position, for the player (FR-UI-04)."""
+    """ffmpeg.exe streaming 16-bit stereo PCM from a position, for the player."""
     RATE = 48000
     CHANNELS = 2
 

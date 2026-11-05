@@ -1,7 +1,7 @@
-"""Recognition engines behind one interface (FR-CAT-03).
+"""Recognition engines behind one interface.
 
 Each engine: load(model) -> transcribe(audio, offset, ...) yielding segment dicts,
-and adds to self.stats: speech_tokens, text_tokens, out_tokens (section 11)."""
+and adds to self.stats: speech_tokens, text_tokens, out_tokens."""
 import glob
 import math
 import re
@@ -24,7 +24,7 @@ def first(folder, *patterns):
 
 
 def detect_type(folder):
-    """Model type from the files in a folder (section 7 table). Returns (kind, files) or (None, missing)."""
+    """Model type from the files in a folder. Returns (kind, files) or (None, missing)."""
     if not os.path.isdir(folder):
         return None, ["(folder not found)"]
     has = lambda n: os.path.isfile(os.path.join(folder, n))
@@ -130,7 +130,7 @@ class WhisperEngine(Engine):
                   repetition_penalty=float(s.get("advanced.repetition_penalty")),
                   word_timestamps=word_ts,
                   hallucination_silence_threshold=float(s.get("advanced.skip_silence")) if word_ts else None,
-                  vad_filter=True,  # FR-ASR-03: silence never reaches Whisper
+                  vad_filter=True,  # silence never reaches Whisper
                   vad_parameters={"threshold": vad.threshold,
                                   "min_silence_duration_ms": vad.min_silence_duration_ms,
                                   "speech_pad_ms": vad.speech_pad_ms},

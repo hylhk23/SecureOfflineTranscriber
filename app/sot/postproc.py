@@ -1,4 +1,4 @@
-"""Clean-up after recognition (section 4 step 8): invented-text filter, script conversion,
+"""Clean-up after recognition: invented-text filter, script conversion,
 vocabulary replacements, filler words, paragraphs."""
 import re
 
@@ -67,7 +67,7 @@ def filter_segments(segs, settings):
 
 
 def apply_replacements(text, replacements, script=None):
-    """Returns (new_text, [(heard, correct, count)]). Chinese entries follow the chosen script (FR-VOC-07)."""
+    """Returns (new_text, [(heard, correct, count)]). Chinese entries follow the chosen script."""
     log = []
     for r in replacements:
         heard, correct = (r.get("heard") or "").strip(), r.get("correct") or ""

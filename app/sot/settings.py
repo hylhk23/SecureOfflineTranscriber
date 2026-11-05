@@ -1,4 +1,4 @@
-"""Settings: defaults, atomic save, export/import (spec sections 5-10, 14)."""
+"""Settings: defaults, atomic save, export/import."""
 import copy
 import json
 import os
@@ -25,7 +25,7 @@ OLD_PER_LANGUAGE = {  # the order version 2.1.0 kept in settings.json
 }
 
 DEFAULTS = {
-    # General (section 5)
+    # General
     "general.data_folder": "data",
     "general.output_folder": "",          # "" = Documents\SOT Transcripts
     "general.save_next_to_media": False,
@@ -45,7 +45,7 @@ DEFAULTS = {
     # Proofreading (player)
     "general.follow_playback": True,      # highlight the line being played and scroll with it
     "general.playback_speed": 1.0,        # 0.5 / 0.75 / 1.0 / 1.25 / 1.5
-    # Transcription (section 6)
+    # Transcription
     "transcription.language": "auto",     # auto / en / fr / yue / zh
     "transcription.model": "auto",        # auto or a model key
     "transcription.per_language": {},    # your own Automatic order per language; empty = the model list's
@@ -56,10 +56,10 @@ DEFAULTS = {
     "transcription.download_folder": "models",
     "transcription.locations": [],
     "transcription.location_cache": {},
-    # Vocabulary (section 8)
+    # Vocabulary
     "vocabulary.active": "Default",
     "vocabulary.sets": {"Default": {"scope": "all", "hotwords": [], "replacements": []}},
-    # Output (section 9)
+    # Output
     "output.autosave": "session+exports",  # off / session / session+exports
     "output.formats": ["txt_times", "srt"],
     "output.save_to": "output",            # output / media / ask
@@ -78,7 +78,7 @@ DEFAULTS = {
     "output.page_size": "Letter",
     "output.remove_fillers": False,
     "output.filler_list": DEFAULT_FILLERS,
-    # Advanced (section 10)
+    # Advanced
     "advanced.beam": 0,                    # 0 = follow Speed
     "advanced.temperature_fallback": True,
     "advanced.compression_ratio": 2.4,
@@ -171,7 +171,7 @@ class Settings:
                 self.values[k] = v
 
     def save(self):
-        """Atomic write: temp file then replace (FR-PKG settings)."""
+        """Atomic write: temp file then replace."""
         folder = os.path.dirname(self.path)
         os.makedirs(folder, exist_ok=True)
         data = {"app": "SecureOfflineTranscriber", "format": 1, "values": self.values}

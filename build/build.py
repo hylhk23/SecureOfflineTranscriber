@@ -1,4 +1,4 @@
-"""Build the portable Windows package of Secure Offline Transcriber (spec section 13).
+"""Build the portable Windows package of Secure Offline Transcriber.
 
 Runs on Windows (py -3.13 build.py) or on Linux/macOS: everything is downloaded as Windows x64 files.
 No PyInstaller, no self-made .exe: the only programs in the package are python.exe / pythonw.exe from
@@ -198,7 +198,7 @@ def main():
         shutil.copy(os.path.join(HERE, "package", fn), os.path.join(stage, fn))
     write_third_party(stage, sp)
 
-    log("7. Program inventory (antivirus safety, section 13)")
+    log("7. Program inventory (antivirus safety)")
     exes = []
     for root, _, files in os.walk(stage):
         for fn in files:
@@ -237,7 +237,7 @@ def main():
 
 
 def write_third_party(stage, sp):
-    """THIRD-PARTY-LICENSES.txt: every library's licence file, plus model licences (FR-HELP-04)."""
+    """THIRD-PARTY-LICENSES.txt: every library's licence file, plus model licences."""
     out = [open(os.path.join(HERE, "package", "THIRD-PARTY-HEADER.txt"), encoding="utf-8").read().rstrip(), ""]
     for d in sorted(os.listdir(sp), key=str.lower):
         if not d.endswith(".dist-info"):

@@ -55,7 +55,7 @@ class AboutDialog(QDialog):
         title = QLabel(f"<b style='font-size:15pt'>{APP_NAME} {VERSION}</b>")
         col.addWidget(title)
         don = QLabel(f"Support this program with a donation: <a href='{WEBSITE}'>{WEBSITE}</a>")
-        don.setOpenExternalLinks(True)  # the only link that leaves the PC, and only on click (FR-HELP-02)
+        don.setOpenExternalLinks(True)  # the only link that leaves the PC, and only on click
         col.addWidget(don)
         body = QLabel(
             "Offline speech-to-text for Windows: time-stamped transcripts from recorded audio and video files, "
@@ -198,7 +198,7 @@ def parse_time(s):
 
 
 class ExportDialog(QDialog):
-    """File > Export (FR-OUT-03): ticks, folder and pattern pre-filled; changes apply to this export only."""
+    """File > Export: ticks, folder and pattern pre-filled; changes apply to this export only."""
 
     def __init__(self, parent, settings, folder):
         super().__init__(parent)
@@ -278,7 +278,7 @@ def file_properties_text(info):
 
 
 class FirstRunDialog(QDialog):
-    """FR-MOD-01: no model installed yet."""
+    """No model installed yet."""
 
     def __init__(self, parent, rec_size, rec_names="", extra_text=""):
         super().__init__(parent)

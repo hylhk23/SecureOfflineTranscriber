@@ -1,4 +1,4 @@
-"""Player (FR-UI-04): ffmpeg.exe streams PCM from a position; sounddevice (PortAudio) plays it."""
+"""Player: ffmpeg.exe streams PCM from a position; sounddevice (PortAudio) plays it."""
 import threading
 
 from PySide6.QtCore import QObject, Signal

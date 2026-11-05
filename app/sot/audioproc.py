@@ -1,4 +1,4 @@
-"""Volume levelling and voice detection (spec section 4, steps 4-5; section 10)."""
+"""Volume levelling and voice detection."""
 import numpy as np
 
 SR = 16000

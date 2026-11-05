@@ -25,7 +25,7 @@ def test_defaults_match_spec():
     assert DEFAULTS["output.formats"] == ["txt_times", "srt"]
     assert DEFAULTS["output.pattern"] == "{name}_stt_{model}"
     assert DEFAULTS["transcription.script_yue"] == "hk" and DEFAULTS["transcription.script_zh"] == "cn"
-    assert DEFAULTS["advanced.carry_previous"] is False  # FR-ASR-04
+    assert DEFAULTS["advanced.carry_previous"] is False
 
 
 def test_settings_roundtrip(tmp_path):
@@ -56,7 +56,7 @@ def test_replacements_whole_word_and_log():
 
 def test_chinese_replacement_follows_script():
     reps = [{"heard": "粵語", "correct": "廣東話", "whole": True, "case": False}]
-    out, log = postproc.apply_replacements("粤语很好", reps, "cn")  # FR-VOC-07: one entry, either script
+    out, log = postproc.apply_replacements("粤语很好", reps, "cn")  # one entry, either script
     assert out == "广东话很好" and log
 
 

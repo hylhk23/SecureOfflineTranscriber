@@ -1,4 +1,4 @@
-"""Session files (.sot.json, FR-OUT-06): media path + SHA-256, segments, edits, settings used, statistics."""
+"""Session files (.sot.json): media path + SHA-256, segments, edits, settings used, statistics."""
 import datetime
 import json
 import os

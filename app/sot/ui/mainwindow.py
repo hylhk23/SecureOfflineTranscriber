@@ -1,4 +1,4 @@
-"""Main window (sections 2-4): menus, Media input with queue and player, Transcript / Raw output tabs,
+"""Main window: menus, Media input with queue and player, Transcript / Raw output tabs,
 status line and statistics bar. Recognition runs in the worker process (sot.worker)."""
 import datetime
 import html
@@ -117,7 +117,7 @@ class MainWindow(QMainWindow):
         self.go_btn.clicked.connect(self.transcribe_or_stop)
         row.addWidget(self.go_btn)
         bv.addLayout(row)
-        # queue (FR-Q-02)
+        # queue
         self.queue_box = QWidget()
         qh = QHBoxLayout(self.queue_box)
         qh.setContentsMargins(0, 0, 0, 0)
@@ -140,7 +140,7 @@ class MainWindow(QMainWindow):
         qh.addLayout(qb)
         self.queue_box.setVisible(False)
         bv.addWidget(self.queue_box)
-        # player (FR-UI-04)
+        # player
         prow = QHBoxLayout()
         st = self.style()
         self.play_btn = QToolButton()
@@ -195,7 +195,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.raw, "Raw output")
         self.tabs.currentChanged.connect(lambda _: self.update_actions())
         v.addWidget(self.tabs, 1)
-        # ---- status line (FR-STAT-02)
+        # ---- status line
         srow = QHBoxLayout()
         self.stage_label = QLabel("Ready")
         self.progress = QProgressBar()
@@ -207,7 +207,7 @@ class MainWindow(QMainWindow):
         srow.addWidget(self.stage_label, 1)
         srow.addWidget(self.progress)
         v.addLayout(srow)
-        # ---- statistics bar (section 11)
+        # ---- statistics bar
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setFrameShadow(QFrame.Sunken)
@@ -436,7 +436,7 @@ class MainWindow(QMainWindow):
     def refresh_models(self):
         self.manager.scan()
         if self.manager.installed() and not self.settings.get("advanced.offline_auto_done"):
-            # Network: "On once a model is installed" (section 10)
+            # Network: "On once a model is installed"
             self.settings.set("advanced.offline", True)
             self.settings.set("advanced.offline_auto_done", True)
             self._save_settings()
@@ -487,7 +487,7 @@ class MainWindow(QMainWindow):
         self.recent_menu.addSeparator()
         self.recent_menu.addAction("Clear List", lambda: self._set_quick("general.recent", []))
 
-    # ================================================================== model choice (section 6)
+    # ================================================================== model choice
     def model_dict(self, m):
         return {"key": m.key, "kind": m.kind, "folder": m.folder, "name": m.name, "short": m.short,
                 "languages": list(m.languages)}
@@ -672,7 +672,7 @@ class MainWindow(QMainWindow):
         if self.info:
             ReportDialog(self, "File Properties", file_properties_text(self.info)).exec()
 
-    # ================================================================== queue (FR-Q)
+    # ================================================================== queue
     def add_to_queue(self):
         files, _ = QFileDialog.getOpenFileNames(self, "Add Files to Queue", "", MEDIA_FILTER)
         if files:
@@ -792,7 +792,7 @@ class MainWindow(QMainWindow):
                     q["status"] = "Waiting"
                     self.refresh_queue()
                 return
-        if self.queue_totals:  # FR-Q-05
+        if self.queue_totals:
             self.stats_label.setText(stats.queue_line(self.queue_totals))
             self.stats_label.setToolTip("")
             self.queue_totals = None
@@ -839,7 +839,7 @@ class MainWindow(QMainWindow):
         words = " ".join(vs.get("hotwords", [])).split()
         hot = []
         n = 0
-        for h in vs.get("hotwords", []):  # FR-VOC-02: cut to the prompt limit, most important first
+        for h in vs.get("hotwords", []):  # cut to the prompt limit, most important first
             n += len(h.split())
             if n > HOTWORD_LIMIT:
                 break
@@ -914,7 +914,7 @@ class MainWindow(QMainWindow):
         if self.job:
             for ev in self.worker.poll():
                 self._event(ev)
-            if self.job and not self.worker.alive():  # FR-ASR-05
+            if self.job and not self.worker.alive():
                 self._failed("The recognition process ended unexpectedly. The text done so far is kept; see the log.")
             if self.job:
                 self._live_stats()
@@ -969,7 +969,7 @@ class MainWindow(QMainWindow):
             self._failed(ev[1])
 
     def _journal(self):
-        """FR-ASR-08: the text so far, saved while the job runs, so a crash can be resumed."""
+        """The text so far, saved while the job runs, so a crash can be resumed."""
         j = self.job
         self._journal_t = time.perf_counter()
         prev = self.resume["segments"] if self.resume else []
@@ -1060,7 +1060,7 @@ class MainWindow(QMainWindow):
         if cancelled:
             self.status_msg(f"Stopped at {media.fmt_clock(audio_s)}. The text done so far is kept.")
         self.job_meta = {"model": model, "language": lang, "partial": bool(cancelled)}
-        # save (step 10)
+        # save
         t_save = time.perf_counter()
         saved = self.autosave()
         self.stats["save_s"] = time.perf_counter() - t_save + float(prev.get("save_s") or 0)
@@ -1137,7 +1137,7 @@ class MainWindow(QMainWindow):
             self._queue_status(q)
             if self.queue_totals:
                 self.queue_totals["failed"] += 1
-            if not self.stop_all:  # FR-Q-04: the queue goes on
+            if not self.stop_all:  # the queue goes on
                 QTimer.singleShot(200, self._next_in_queue)
                 return
         QMessageBox.warning(self, "Transcribe", f"The transcription stopped:\n\n{message}\n\nThe text done so far is kept.")
@@ -1193,8 +1193,8 @@ class MainWindow(QMainWindow):
     SEGMENT_FORMATS = ("srt", "vtt", "json", "csv")
 
     def segment_blocks(self, edited):
-        """Subtitles, JSON and CSV are per segment (section 9): an unedited paragraph is expanded back into its
-        segments; an edited one is kept whole so the edit is never lost (FR-OUT-05)."""
+        """Subtitles, JSON and CSV are per segment: an unedited paragraph is expanded back into its
+        segments; an edited one is kept whole so the edit is never lost."""
         by_start = {round(p["start"], 3): p for p in getattr(self, "shown_blocks", []) or []}
         out = []
         for b in edited:
@@ -1242,7 +1242,7 @@ class MainWindow(QMainWindow):
     def _edited(self):
         self.update_title()
 
-    # ================================================================== saving and export (section 9)
+    # ================================================================== saving and export
     def meta(self):
         info = self.info or {}
         jm = getattr(self, "job_meta", {}) or {}
@@ -1300,7 +1300,7 @@ class MainWindow(QMainWindow):
 
     def export(self, formats, folder, pattern, replace=None):
         """Writes the formats; returns [(format, path)]. replace: {format: path} to overwrite without asking."""
-        blocks = self.editor.blocks()  # FR-OUT-05: the edited transcript
+        blocks = self.editor.blocks()  # the edited transcript
         if not blocks:
             return []
         meta = self.meta()
@@ -1408,7 +1408,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Open Transcript", str(ex))
             return
         mp = data.get("media_path") or ""
-        if not os.path.isfile(mp):  # FR-OUT-06: find the media again and check it
+        if not os.path.isfile(mp):  # find the media again and check it
             QMessageBox.information(self, "Open Transcript", f"The recording was not found at\n{mp}\n\nPlease locate it.")
             mp, _ = QFileDialog.getOpenFileName(self, "Locate the recording", os.path.dirname(path), MEDIA_FILTER)
             if mp and data.get("media_sha256") and media.sha256_file(mp) != data["media_sha256"]:
@@ -1445,7 +1445,7 @@ class MainWindow(QMainWindow):
                             "carry on from there.")
 
     def copy_transcript(self):
-        """FR-OUT-04: plain text with times and HTML."""
+        """Plain text with times and HTML."""
         blocks = self.editor.blocks()
         if not blocks:
             return
@@ -1661,7 +1661,7 @@ class MainWindow(QMainWindow):
             a.setEnabled(not raw and not running)
         mkey = self.settings.get("transcription.model")
         m = self.manager.find(mkey) if mkey != "auto" else None
-        self.speed_menu.setEnabled(m is None or m.kind == "whisper")  # FR-MENU-01
+        self.speed_menu.setEnabled(m is None or m.kind == "whisper")
         self.go_btn.setEnabled(True)
 
     def status_msg(self, text):
@@ -1669,7 +1669,7 @@ class MainWindow(QMainWindow):
         log.info("status: %s", text)
 
     def notify(self, text):
-        """FR-MENU-03: a Windows notification when the window is minimised."""
+        """A Windows notification when the window is minimised."""
         if not self.settings.get("general.notify") or not (self.isMinimized() or not self.isActiveWindow()):
             return
         if not QSystemTrayIcon.isSystemTrayAvailable():
@@ -1713,7 +1713,7 @@ class MainWindow(QMainWindow):
                 self.add_location_with_notes(d)
 
     def add_location_with_notes(self, d):
-        """FR-MOD-10: version 2.0 folders: local_whisper* are used; FunASR folders are skipped with a note."""
+        """Version 2.0 folders: local_whisper* are used; FunASR folders are skipped with a note."""
         try:
             found = self.manager.add_location(d)
         except Exception as ex:
@@ -1748,7 +1748,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Help", "HELP.html is missing from the app\\docs folder.")
 
     def offer_journal(self):
-        """FR-ASR-08: a job journal left behind by a crash or power cut: resume it, or show its text."""
+        """A job journal left behind by a crash or power cut: resume it, or show its text."""
         j = system.journal_read(self.settings)
         if not j or not j.get("segments") or not os.path.isfile(j.get("path", "")):
             system.journal_clear(self.settings)

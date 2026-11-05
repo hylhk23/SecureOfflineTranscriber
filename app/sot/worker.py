@@ -1,6 +1,6 @@
-"""Recognition runs in a separate worker process so the window never freezes (NFR-02).
+"""Recognition runs in a separate worker process so the window never freezes.
 
-The worker stays alive between files so the loaded model is kept (FR-ASR-06).
+The worker stays alive between files so the loaded model is kept.
 Main -> worker: ("job", dict) / ("quit",).   Cancel: a shared Event.
 Worker -> main: ("stage", text), ("progress", done_s, total_s), ("model", info), ("segment", seg),
                 ("raw", line), ("block_gain", db), ("done", stats), ("error", message)."""
@@ -11,7 +11,7 @@ import queue
 import time
 import traceback
 
-BLOCK_S = 1800.0  # long files are decoded and transcribed in 30-minute blocks (NFR-04)
+BLOCK_S = 1800.0  # long files are decoded and transcribed in 30-minute blocks
 LANGS = ("en", "fr", "yue", "zh")
 
 

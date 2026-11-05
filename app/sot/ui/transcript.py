@@ -1,4 +1,4 @@
-"""Transcript tab (FR-UI-05): editable, one block per paragraph/segment, clickable times, amber 'check' lines,
+"""Transcript tab: editable, one block per paragraph/segment, clickable times, amber 'check' lines,
 and proofreading: the sentence being played is highlighted and followed (version 2.1.2)."""
 import re
 import time
@@ -85,7 +85,7 @@ class TranscriptEdit(QTextEdit):
         cur.insertText(" ", QTextCharFormat())
 
     def append_block(self, b):
-        """Live text while a job runs (FR-ASR-01)."""
+        """Live text while a job runs."""
         cur = QTextCursor(self.document())
         cur.movePosition(QTextCursor.End)
         if not self.document().isEmpty():
@@ -105,7 +105,7 @@ class TranscriptEdit(QTextEdit):
             self.ensureCursorVisible()
 
     def blocks(self):
-        """The edited transcript (FR-OUT-05). New lines a user typed join the block above."""
+        """The edited transcript. New lines a user typed join the block above."""
         out = []
         block = self.document().begin()
         while block.isValid():

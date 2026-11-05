@@ -1,4 +1,4 @@
-"""Where everything lives (spec section 14).
+"""Where everything lives.
 
 Layout of the portable folder (ROOT):
     ROOT/python/          embeddable Python
@@ -43,7 +43,7 @@ def fallback_dir():
 
 
 def settings_dir():
-    """data\\ in the portable folder; %LOCALAPPDATA%\\SecureOfflineTranscriber if that is read-only (FR-DATA-01)."""
+    """data\\ in the portable folder; %LOCALAPPDATA%\\SecureOfflineTranscriber if that is read-only."""
     global _settings_dir
     if _settings_dir is None:
         own = os.path.join(ROOT, "data")
@@ -57,7 +57,7 @@ def using_fallback():
 
 
 def to_stored(path):
-    """Store paths inside the portable folder relative to it (FR-DATA-02)."""
+    """Store paths inside the portable folder relative to it."""
     if not path:
         return ""
     full = os.path.abspath(path)
@@ -88,10 +88,10 @@ _log_handler = None
 
 
 def setup_logging(data_folder):
-    """Daily log file in <data>/logs, kept 7 days (NFR/FR-PRIV-05).
+    """Daily log file in <data>/logs, kept 7 days.
 
     Without a console (pythonw.exe) stdout/stderr are None: they go to the log
-    file so libraries that print cannot crash the app (FR-PRIV-06)."""
+    file so libraries that print cannot crash the app."""
     global _log_handler
     logs = os.path.join(data_folder, "logs")
     try:
@@ -119,7 +119,7 @@ def setup_logging(data_folder):
 
 
 def offline_env():
-    """Set before loading any model library (FR-PRIV-02)."""
+    """Set before loading any model library."""
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
     os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"

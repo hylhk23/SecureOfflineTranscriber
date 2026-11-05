@@ -1,4 +1,4 @@
-"""Export formats (section 9). All text is UTF-8 (CSV with BOM) and CRLF line endings (FR-OUT-01)."""
+"""Export formats. All text is UTF-8 (CSV with BOM) and CRLF line endings."""
 import csv
 import datetime
 import io

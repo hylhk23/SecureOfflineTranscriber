@@ -1,6 +1,6 @@
-"""Options dialog (sections 5-10): General · Transcription (with the model manager) · Vocabulary · Output · Advanced.
+"""Options dialog: General · Transcription (with the model manager) · Vocabulary · Output · Advanced.
 
-The dialog edits a working copy of the settings; Apply/OK validate and copy it back (FR-OPT-01).
+The dialog edits a working copy of the settings; Apply/OK validate and copy it back.
 Model-manager actions (download, delete, locations, packs) act at once, because they change files."""
 import copy
 import csv
@@ -25,7 +25,7 @@ from ..settings import DEFAULTS, GROUPS, Settings
 
 LANGS = [("auto", "Auto-detect"), ("en", "English"), ("fr", "French"), ("yue", "Cantonese"), ("zh", "Mandarin")]
 SCRIPTS = [("hk", "Traditional (Hong Kong)"), ("tw", "Traditional (Taiwan)"), ("cn", "Simplified")]
-HOTWORD_LIMIT = 100  # about half of Whisper's 448-token prompt (FR-VOC-02)
+HOTWORD_LIMIT = 100  # about half of Whisper's 448-token prompt
 TABS = ["General", "Transcription", "Vocabulary", "Output", "Advanced"]
 
 
@@ -220,7 +220,7 @@ class OptionsDialog(QDialog):
         self.settings.set("general.last_options_tab", self.tabs.currentIndex())
         super().reject()
 
-    # ------------------------------------------------------------ settings files (FR-OPT-02/03)
+    # ------------------------------------------------------------ settings files
     def export_settings(self):
         p, _ = QFileDialog.getSaveFileName(self, "Export settings", "sot-settings.json", "Settings (*.json)")
         if p:
@@ -257,7 +257,7 @@ class OptionsDialog(QDialog):
         self.tabs.setCurrentIndex(idx)
 
 
-# ====================================================================== General (section 5)
+# ====================================================================== General
 class GeneralTab(QWidget):
     def __init__(self, dlg):
         super().__init__()
@@ -324,7 +324,7 @@ class GeneralTab(QWidget):
             self.out.setText(d)
 
     def change_data(self):
-        """FR-OPT-05: Move my data there / Start fresh there."""
+        """Move my data there / Start fresh there."""
         old = self.data.text()
         new = QFileDialog.getExistingDirectory(self, "Data folder", old)
         if not new or os.path.normcase(os.path.abspath(new)) == os.path.normcase(os.path.abspath(old)):
@@ -360,7 +360,7 @@ class GeneralTab(QWidget):
         self.data.setText(new)
 
 
-# ====================================================================== Transcription (section 6) + model manager
+# ====================================================================== Transcription + model manager
 class TranscriptionTab(QWidget):
     COLS = ["Model", "Languages", "Size", "Licence", "Location", "Status", ""]
 
@@ -893,7 +893,7 @@ class TranscriptionTab(QWidget):
             QMessageBox.information(self, "Export model pack", f"Saved {p} ({human_size(size)}).")
 
 
-# ====================================================================== Vocabulary (section 8)
+# ====================================================================== Vocabulary
 class VocabularyTab(QWidget):
     def __init__(self, dlg):
         super().__init__()
@@ -1071,7 +1071,7 @@ class VocabularyTab(QWidget):
         self.dlg.work.set("vocabulary.active", self.set_combo.currentText())
 
     def add_heard(self, text):
-        """Edit > Add Selection to Vocabulary (FR-VOC-05)."""
+        """Edit > Add Selection to Vocabulary."""
         r = self.add_row(text.strip(), "")
         self.rep.setCurrentCell(r, 1)
         self.rep.editItem(self.rep.item(r, 1))
@@ -1172,7 +1172,7 @@ class VocabularyTab(QWidget):
         QMessageBox.information(self, "Test replacements", f"{out}\n\n{detail}")
 
 
-# ====================================================================== Output (section 9)
+# ====================================================================== Output
 class OutputTab(QWidget):
     def __init__(self, dlg):
         super().__init__()
@@ -1307,7 +1307,7 @@ class OutputTab(QWidget):
         pass
 
 
-# ====================================================================== Advanced (section 10)
+# ====================================================================== Advanced
 META = {
     "advanced.beam": ("Beam size", "int", (0, 10), "0 = follow Speed (Fast 1, Accurate 5). Larger is slower and a little more accurate."),
     "advanced.temperature_fallback": ("Temperature fallback", "bool", None, "Retry a window at 0.2, 0.4… 1.0 when it looks wrong."),
@@ -1461,7 +1461,7 @@ class AdvancedTab(QWidget):
 
     def bold(self, k):
         f = self.labels[k].font()
-        f.setBold(self.value(k) != DEFAULTS[k])  # FR-ADV-01
+        f.setBold(self.value(k) != DEFAULTS[k])
         self.labels[k].setFont(f)
 
     def refresh_bold(self):
@@ -1486,7 +1486,7 @@ class AdvancedTab(QWidget):
         model = self.dlg.work.get("transcription.model")
         m = self.dlg.manager.find(model) if model and model != "auto" else None
         whisper = m is None or m.kind == "whisper"
-        self.decoding_box.setEnabled(whisper)  # FR-ADV-02
+        self.decoding_box.setEnabled(whisper)
         self.decoding_box.setToolTip("" if whisper else "Whisper only: the chosen model is " + m.name)
 
     def clear_temp(self):
