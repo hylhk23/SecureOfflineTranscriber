@@ -354,3 +354,82 @@ def test_package_readmes_match_version():
         text = open(os.path.join(root, sub, "README.txt"), encoding="utf-8").read()
         assert text.startswith(f"Secure Offline Transcriber {VERSION} - portable edition")
         assert f"WHAT'S NEW IN {VERSION}" in text
+
+
+# ---------------------------------------------------------------- issue #1: voice detection in 30-s windows
+def _drifting_vad(monkeypatch, good_s=60.0):
+    """A stand-in for Silero whose state drifts: it finds speech only in the first good_s seconds of whatever
+    audio it is given (the behaviour reported in issue #1). Records every call."""
+    from faster_whisper import vad
+    calls = []
+
+    def fake(audio, vad_options=None, sampling_rate=16000, **kw):
+        calls.append(len(audio))
+        end = min(len(audio), int(good_s * sampling_rate))
+        return [{"start": 0, "end": end}] if end > 0 else []
+    monkeypatch.setattr(vad, "get_speech_timestamps", fake)
+    return calls
+
+
+def test_windowed_vad_recovers_speech_lost_to_drift(monkeypatch):
+    from sot import audioproc
+    from faster_whisper.vad import VadOptions
+    calls = _drifting_vad(monkeypatch)
+    audio = np.zeros(600 * 16000, np.float32)  # 10 minutes, "speech" throughout
+    whole = __import__("faster_whisper").vad.get_speech_timestamps(audio, VadOptions())
+    assert sum(t["end"] - t["start"] for t in whole) == 60 * 16000  # the drift: 60 s of 600 s
+    calls.clear()
+    ts = audioproc.windowed_speech_timestamps(audio, VadOptions())
+    assert len(calls) == 20 and max(calls) == 31 * 16000  # 30-s windows with 1 s before each
+    assert ts == [{"start": 0, "end": 600 * 16000}]  # all of it, joined across the window boundaries
+
+
+def test_windowed_vad_offsets_cap_and_short_audio(monkeypatch):
+    from sot import audioproc
+    from faster_whisper import vad
+    from faster_whisper.vad import VadOptions
+    seen = []
+
+    def fake(audio, vad_options=None, sampling_rate=16000, **kw):  # speech from 10 s to 12 s of each window
+        seen.append(len(audio))
+        return [{"start": 10 * 16000, "end": 12 * 16000}] if len(audio) > 12 * 16000 else []
+    monkeypatch.setattr(vad, "get_speech_timestamps", fake)
+    ts = audioproc.windowed_speech_timestamps(np.zeros(90 * 16000, np.float32), VadOptions())
+    assert [(t["start"] / 16000, t["end"] / 16000) for t in ts] == [(10, 12), (39, 41), (69, 71)]
+    seen.clear()
+    audioproc.windowed_speech_timestamps(np.zeros(20 * 16000, np.float32), VadOptions())
+    assert seen == [20 * 16000]  # short audio: one call, as before
+    _drifting_vad(monkeypatch, good_s=1000)
+    ts = audioproc.windowed_speech_timestamps(np.zeros(100 * 16000, np.float32), VadOptions(max_speech_duration_s=15))
+    assert max(t["end"] - t["start"] for t in ts) <= 15 * 16000 and ts[-1]["end"] == 100 * 16000
+
+
+def test_speech_pieces_use_windows(monkeypatch):
+    from sot import audioproc
+    _drifting_vad(monkeypatch)
+    pieces = audioproc.speech_pieces(np.zeros(300 * 16000, np.float32), S(), 15)
+    assert sum(e - b for b, e in pieces) == 300 * 16000 and max(e - b for b, e in pieces) <= 15 * 16000
+
+
+def test_whisper_uses_windowed_vad():
+    """Whisper's transcribe() and detect_language() look the name up in faster_whisper.transcribe."""
+    import faster_whisper
+    import faster_whisper.transcribe as fwt
+    from sot import audioproc
+    assert faster_whisper.__version__ == "1.2.1"  # a new version: check where it calls the VAD, then update this
+    src = open(fwt.__file__, encoding="utf-8").read()
+    assert src.count("get_speech_timestamps(audio, vad_parameters)") >= 2
+    audioproc.install_windowed_vad()
+    assert fwt.get_speech_timestamps is audioproc.windowed_speech_timestamps
+    audioproc.install_windowed_vad()  # twice is harmless
+    assert fwt.get_speech_timestamps is audioproc.windowed_speech_timestamps
+
+
+def test_low_speech_warning_and_silent_stretches():
+    from sot import audioproc
+    segs = [{"start": 5, "end": 300}, {"start": 960, "end": 1000}]
+    assert audioproc.silent_stretches(segs, 1800) == [(300.0, 960.0), (1000.0, 1800.0)]
+    assert audioproc.silent_stretches(segs, 1030) == [(300.0, 960.0)]
+    assert round(audioproc.low_speech(308, 1800), 2) == 0.17  # the issue's first block
+    assert audioproc.low_speech(1667, 1800) is None
+    assert audioproc.low_speech(10, 60) is None  # short files are not judged

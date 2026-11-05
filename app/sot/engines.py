@@ -109,6 +109,7 @@ class WhisperEngine(Engine):
         return lang
 
     def detect_language(self, audio, settings):
+        audioproc.install_windowed_vad()  # issue #1: voice detection in 30-s windows
         lang, prob, _ = self.model.detect_language(
             audio=audio, vad_filter=True, vad_parameters=audioproc.vad_options(settings))
         return lang, float(prob)
@@ -135,6 +136,7 @@ class WhisperEngine(Engine):
                                   "speech_pad_ms": vad.speech_pad_ms},
                   hotwords=hw)
         t0 = time.perf_counter()
+        audioproc.install_windowed_vad()  # issue #1: voice detection in 30-s windows, not over the whole block
         segments, info = self.model.transcribe(audio, **kw)
         seeks = set()
         prompt = 3 + (len(self.model.hf_tokenizer.encode(" " + hw).ids) + 1 if hw else 0)

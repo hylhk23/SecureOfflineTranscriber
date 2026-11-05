@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QFile
                                QTableWidgetItem, QTabWidget, QToolButton, QVBoxLayout, QWidget, QStyle,
                                QSizePolicy)
 
-from .. import APP_NAME, APP_TITLE, SESSION_EXT, VERSION, exporters, media, paths, postproc, session, stats, system
+from .. import APP_NAME, APP_TITLE, SESSION_EXT, VERSION, audioproc, exporters, media, paths, postproc, session, stats, system
 from ..modelmgr import LANG_NAMES, human_size
 from ..settings import DEFAULTS
 from .dialogs import (AboutDialog, ExportDialog, FindReplaceDialog, FirstRunDialog, ReportDialog,
@@ -1055,6 +1055,7 @@ class MainWindow(QMainWindow):
                 if not self.stats.get(k) and prev.get(k):
                     self.stats[k] = prev[k]
             self.stats["resumed"] = int(prev.get("resumed") or 0) + 1
+        low_note = self._speech_check(audio_s, cancelled)
         self._show_merged(segs)
         if cancelled:
             self.status_msg(f"Stopped at {media.fmt_clock(audio_s)}. The text done so far is kept.")
@@ -1074,7 +1075,9 @@ class MainWindow(QMainWindow):
         log.info("job done: %s, %d segments, %s", os.path.basename(info["path"]), len(segs), stats.line(self.stats))
         self._end_job_ui()
         if q:
-            q["status"] = f"Stopped at {media.fmt_clock(audio_s)}" if cancelled else "Done"
+            q["status"] = f"Stopped at {media.fmt_clock(audio_s)}" if cancelled else \
+                "Done \u00b7 little speech found" if low_note else "Done"
+            q["error"] = low_note or ""
             self._queue_status(q)
             if self.queue_totals:
                 self.queue_totals["done"] += 1
@@ -1083,10 +1086,34 @@ class MainWindow(QMainWindow):
         self.notify(f"{os.path.basename(info['path'])}: " + ("stopped" if cancelled else "transcript ready"))
         self.stage(("Stopped at " + media.fmt_clock(audio_s)) if cancelled else
                    ("Done" + (f" · saved to {self.output_dir()}" if saved else "")))
+        if low_note:
+            self.status_msg("Little of the recording was recognised as speech; Raw output lists the stretches "
+                            "without text.")
+            if not q:
+                QTimer.singleShot(0, lambda: QMessageBox.warning(self, "Transcribe", low_note))
         if q and not self.stop_all:
             QTimer.singleShot(200, self._next_in_queue)
         elif q and self.queue_totals:
             self.stats_label.setText(stats.queue_line(self.queue_totals))
+
+    def _speech_check(self, audio_s, cancelled):
+        """Issue #1: list long stretches without text in Raw output, and warn when little of the recording was
+        recognised as speech (speech may have been missed). Returns the warning text, or None."""
+        for a, b in audioproc.silent_stretches(self.segments, audio_s)[:10]:
+            self.cleanup_log.append(f"No text from {media.fmt_clock(a)} to {media.fmt_clock(b)} "
+                                    f"({(b - a) / 60:.0f} min)")
+        frac = audioproc.low_speech(self.stats.get("speech_s"), audio_s)
+        if frac is None or cancelled:
+            return None
+        sp = float(self.stats.get("speech_s") or 0)
+        note = (f"Only {frac:.0%} of this recording ({media.fmt_clock(sp)} of {media.fmt_clock(audio_s)}) was "
+                "recognised as speech, so parts where people talk may be missing from the transcript.\n\n"
+                "Raw output lists the stretches without text. If people talk there, lower Speech threshold in "
+                "Options > Advanced > Voice detection (for example to 0.35), turn Noise reduction off, and use "
+                "Transcribe > Start Again from the Beginning.")
+        self.cleanup_log.append(f"Warning: only {frac:.0%} of the recording was recognised as speech")
+        log.warning("little speech found: %.0f%% of %.0f s", frac * 100, audio_s)
+        return note
 
     def _failed(self, message):
         j = self.job

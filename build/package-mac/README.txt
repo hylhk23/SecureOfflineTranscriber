@@ -1,10 +1,17 @@
-Secure Offline Transcriber 2.2.0 - portable edition for macOS (Apple silicon)
+Secure Offline Transcriber 2.2.1 - portable edition for macOS (Apple silicon)
 ================================================================================
 
 Offline speech-to-text: time-stamped transcripts from recorded audio and video files
 (WAV, MP3, M4A, MP4, MKV and more), processed entirely on this Mac. English, French,
 Cantonese and Mandarin. No installation, no account, no internet needed after a model
 is downloaded. Same program, menus and settings as the Windows edition.
+
+WHAT'S NEW IN 2.2.1
+-------------------
+- Fixed: on some long recordings voice detection reported most of the speech as silence,
+  so large parts of the transcript were missing (GitHub issue #1). It now listens in
+  30-second windows. If less than 40% of a recording is recognised as speech, a warning
+  says so, and Raw output lists the stretches of a minute or more without text.
 
 WHAT'S NEW IN 2.2.0
 -------------------

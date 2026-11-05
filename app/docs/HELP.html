@@ -34,7 +34,7 @@ td.v { white-space:nowrap; }
 </style>
 </head>
 <body>
-<header><div><h1>Secure Offline Transcriber 2.2.0</h1>
+<header><div><h1>Secure Offline Transcriber 2.2.1</h1>
 <p class="sub">Time-stamped transcripts of recorded audio and video, made entirely on this PC. English, French, Cantonese and Mandarin.</p></div></header>
 <nav>
 <b>Using the program</b>
@@ -65,7 +65,7 @@ already keep models somewhere, for example the <code>local_whisper</code> folder
 </ol>
 <p>The window has three parts: <strong>Media input</strong> at the top (file, Transcribe button, queue, player), the
 <strong>Transcript</strong> and <strong>Raw output</strong> tabs in the middle, and the status line and statistics bar at the bottom. The title
-bar shows the program name and version, for example <em>Secure Offline Transcriber (2.2.0)</em>, and the progress while a job runs.</p>
+bar shows the program name and version, for example <em>Secure Offline Transcriber (2.2.1)</em>, and the progress while a job runs.</p>
 
 <h2 id="transcribe">Transcribe a recording</h2>
 <ol>
@@ -81,10 +81,12 @@ left; the statistics bar shows time used, audio done and speed.</li>
 file <code>.sot.json</code> plus Text with times and SRT subtitles.</li>
 </ol>
 <p><strong>Several files:</strong> open or drop two or more files and a queue appears. They run one after another; each result is saved before
-the next starts, and a file that fails is marked Failed while the queue goes on. Use <em>Remove</em>, <em>Move up</em> and
+the next starts, and a file that fails is marked Failed while the queue goes on (a file where little speech was found is marked
+<em>Done · little speech found</em>; see <a href="#trouble">Troubleshooting</a>). Use <em>Remove</em>, <em>Move up</em> and
 <em>Move down</em> to arrange it before you press Transcribe.</p>
 <p><strong>What happens inside:</strong> ffmpeg.exe reads the audio (and applies noise reduction if you chose it), quiet recordings are
-raised to a normal level, voice detection finds the speech and skips silence, the model writes the text, then the clean-up removes
+raised to a normal level, voice detection finds the speech and skips silence (it listens in 30-second windows, so every part of a
+long recording is checked the same way), the model writes the text, then the clean-up removes
 invented phrases, applies your vocabulary replacements and converts Chinese to the script you chose.</p>
 
 <h2 id="resume">Stop and resume a long job</h2>
@@ -383,6 +385,11 @@ is not Whisper.</p>
 <tr id="set-advanced.vad_pad_ms"><td>Padding around speech</td><td>0–1,000 ms · <strong>300</strong></td><td>Audio kept before and after each piece so first and last syllables are not cut. More padding includes more background noise.</td></tr>
 <tr id="set-advanced.max_piece_s"><td>Longest piece (SenseVoice, Parakeet, Moonshine)</td><td>5–25 s · <strong>15</strong></td><td>Long speech is cut into pieces of at most this length for these models. Longer pieces give more context but use more memory and can lose words at the end.</td></tr>
 </table></div>
+<p>Voice detection works through the recording in 30-second windows, each starting one second early so a word on the
+boundary is heard whole; this is the same for every model. (Version 2.2.0 and earlier checked each 30-minute block in one pass,
+which on some recordings reported most of the speech as silence.) When less than 40% of a recording of 2 minutes or more is
+recognised as speech, the program warns you, and Raw output lists every stretch of a minute or more without text, so you can
+play it and check.</p>
 <h3>Audio</h3>
 <div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
 <tr id="set-advanced.normalise"><td>Normalise volume</td><td>Tick · <strong>on</strong></td><td>Raises quiet recordings so speech sits near the target level. Loud recordings are left alone. Keep on: quiet recordings otherwise lose many words.</td></tr>
@@ -431,7 +438,8 @@ is not Whisper.</p>
 <tr><td>Tokens in / out</td><td>Units the model read (speech positions and text prompts, including hotwords) and wrote.</td></tr>
 <tr><td>Speed</td><td>Audio ÷ Time: 2× means a 1-hour file takes 30 minutes. tok/s is the model's writing speed.</td></tr>
 </table>
-<p>Right-click the bar to copy the statistics. The Raw output tab starts with the same numbers and the settings used.</p>
+<p>Right-click the bar to copy the statistics. The Raw output tab starts with the same numbers and the settings used, and
+lists each stretch of a minute or more without text (for example <code>No text from 00:12:30 to 00:20:00 (8 min)</code>).</p>
 <h3>Model states</h3>
 <table><tr><th>State</th><th>Meaning</th></tr>
 <tr><td>Installed</td><td>Ready to use.</td></tr>
@@ -471,6 +479,7 @@ transcripts stay in <code>Documents/SOT Transcripts</code>.</li>
 <tr><td>Nothing happens on start</td><td>Run <code>run-debug.bat</code> and read the console; the log is in <code>data\logs</code>. <code>smoke-test.bat</code> checks every library.</td></tr>
 <tr><td>"No installed model can transcribe…"</td><td>Download a model for that language in Options &gt; Transcription, or choose another language.</td></tr>
 <tr><td>Text invented in silence</td><td>Keep the invented-text filter on, add the phrase to its list; raise the speech threshold to 0.6.</td></tr>
+<tr><td>"Only 25% of this recording … was recognised as speech" (in a queue: <em>Done · little speech found</em>)</td><td>Play the stretches Raw output lists as <em>No text from … to …</em>. If people talk there, lower <em>Speech threshold</em> in Options &gt; Advanced &gt; Voice detection (for example to 0.35), turn Noise reduction off, and use <em>Transcribe &gt; Start Again from the Beginning</em>. A recording with long silences or music can show this warning when nothing is missing.</td></tr>
 <tr><td>Words missing in a quiet recording</td><td>Keep Normalise volume on; lower the speech threshold to 0.35–0.4; try a larger Whisper model or Accurate speed.</td></tr>
 <tr><td>Names misspelled</td><td>Add them as hotwords (Whisper) or replacements (all models); see <a href="#names">Names from documents</a>.</td></tr>
 <tr><td>Slow on a long file</td><td>Use SenseVoiceSmall or Parakeet, Fast speed, background priority off; Stop and Resume if you need the PC.</td></tr>
