@@ -12,7 +12,9 @@
 
 A speech-to-text program for **Windows and macOS** that turns recorded meetings, interviews and calls into time-stamped transcripts in **English, French, Cantonese and Mandarin**, using speech models that run on your own computer. Portable: unzip and run, no installation and no admin rights.
 
-**[Download the latest version](https://github.com/hylhk23/SecureOfflineTranscriber/releases/latest)** · Windows 11 or 10, 64-bit · macOS 14 or later on Apple silicon (M1 or newer) · Free
+**Download: [Windows 2.2.0](https://github.com/hylhk23/SecureOfflineTranscriber/releases/tag/v2.2.0) · [Mac 2.2.1](https://github.com/hylhk23/SecureOfflineTranscriber/releases/latest)** · Windows 11 or 10, 64-bit · macOS 14 or later on Apple silicon (M1 or newer) · Free
+
+Version 2.2.1, with the voice detection fix and options described below, is out for the Mac first. Windows gets the same changes in its next release.
 
 <p align="center">
   <img src="docs/images/main-window.png" alt="Secure Offline Transcriber transcribing a recording: progress bar, time-stamped text appearing line by line, Stop button and statistics bar" width="760">
@@ -130,7 +132,7 @@ You need Windows 11 or 10 (64-bit), or a Mac with Apple silicon (M1 or newer) on
 
 ### Windows: manual download
 
-1. Open the **[latest release](https://github.com/hylhk23/SecureOfflineTranscriber/releases/latest)** and click **`SecureOfflineTranscriber-portable-win64.zip`** under *Assets*.
+1. Open the **[2.2.0 release](https://github.com/hylhk23/SecureOfflineTranscriber/releases/tag/v2.2.0)** (the current Windows version) and click **`SecureOfflineTranscriber-portable-win64.zip`** under *Assets*.
 2. In File Explorer, right-click the downloaded zip, choose **Properties**, tick **Unblock** at the bottom (if shown) and click **OK**. This stops Windows from showing security warnings for files that came from the internet.
 3. Right-click the zip and choose **Extract All...**, pick a folder you can write to (for example `C:\Users\<you>\Apps`) and click **Extract**. Inside it you get a folder named `SecureOfflineTranscriber`. (Windows may add a folder named after the zip around it; that is fine.)
 4. Optional: double-click **`verify-files.bat`** in that folder. It checks that every file arrived complete (antivirus programs sometimes block a file while unzipping).
@@ -143,7 +145,7 @@ Open **Command Prompt** or **PowerShell** and run these lines. They use `curl` a
 
 ```bat
 cd %USERPROFILE%
-curl.exe -L -o SecureOfflineTranscriber-portable-win64.zip https://github.com/hylhk23/SecureOfflineTranscriber/releases/latest/download/SecureOfflineTranscriber-portable-win64.zip
+curl.exe -L -o SecureOfflineTranscriber-portable-win64.zip https://github.com/hylhk23/SecureOfflineTranscriber/releases/download/v2.2.0/SecureOfflineTranscriber-portable-win64.zip
 tar -xf SecureOfflineTranscriber-portable-win64.zip
 SecureOfflineTranscriber\run.bat
 ```
@@ -195,6 +197,8 @@ Full help: press **F1** in the app, or open [`app/docs/HELP.html`](app/docs/HELP
 ### Update to a new version
 Download and extract the new zip for your system. Before deleting the old folder, copy its **`data`** folder (settings and vocabulary) and **`models`** folder (downloaded models) into the new `SecureOfflineTranscriber` folder, replacing the empty ones. Transcripts in `Documents\SOT Transcripts` are not affected.
 
+On a Mac, rename the old folder first, so the Terminal lines above unzip into a fresh folder: `mv ~/SecureOfflineTranscriber ~/SecureOfflineTranscriber-old`. Then copy `data` and `models` from `SecureOfflineTranscriber-old` into the new folder.
+
 ### Remove
 Close the app. If you registered it under **Options > Advanced > File types**, click **Unregister** first. Run `create-shortcut.bat /remove` if you created shortcuts, then delete the `SecureOfflineTranscriber` folder. Your transcripts stay in `Documents\SOT Transcripts`. (Only if the program folder was read-only were settings kept in `%LOCALAPPDATA%\SecureOfflineTranscriber`; delete that too.)
 
@@ -211,7 +215,7 @@ On a Mac: quit the program and move the `SecureOfflineTranscriber` folder to the
 | `run.bat` does nothing, or asks for Python | Make sure the `python` folder is inside `SecureOfflineTranscriber`. Download the **portable** zip from Releases, not *Code > Download ZIP* (that is the source code only). `run-debug.bat` shows what goes wrong. |
 | Model download fails at work | The network may block Hugging Face. Try **Options > Advanced > Proxy**, or download the models on another PC and use **Export model pack** / **Import model pack**. Offline Mode must be off to download. |
 | Names come out wrong | Use a Whisper model and add the names as hotwords (**Edit > Add Names from Documents**), or add replacements in **Options > Vocabulary**. |
-| Large parts of a recording have no text, or a warning says only a small share was recognised as speech | **Raw output** lists the stretches without text. Play them; if people talk there, go to **Options > Advanced > Voice detection**: lower **Speech threshold** (for example to 0.35) and keep **Check stretches without speech** ticked, or with a Whisper model tick **Voice detection off**. Turn Noise reduction off and choose **Transcribe > Start Again from the Beginning**. Version 2.2.0 could miss most of the speech on some long recordings; 2.2.1 fixes this. |
+| Large parts of a recording have no text, or a warning says only a small share was recognised as speech | **Raw output** lists the stretches without text. Play them; if people talk there, go to **Options > Advanced > Voice detection**: lower **Speech threshold** (for example to 0.35) and keep **Check stretches without speech** ticked, or with a Whisper model tick **Voice detection off**. Turn Noise reduction off and choose **Transcribe > Start Again from the Beginning**. Version 2.2.0 could miss most of the speech on some long recordings; 2.2.1 for the Mac fixes this, and the next Windows release will too. |
 | Transcription is slow | Use SenseVoiceSmall or Parakeet, keep Speed on **Fast**, and stop other heavy programs. You can **Stop** and **Resume** later. |
 | Your organization blocks programs in your user folders | Some IT policies only allow programs in approved locations. Ask your IT team. |
 | Mac: "cannot be opened" or "Apple could not verify" | The folder still has the "downloaded from the internet" mark. Double-click `run.command` and accept its offer to remove the mark, or run the `xattr` line in [macOS](#macos-apple-silicon). |
