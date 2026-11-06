@@ -7,6 +7,7 @@ import math
 import re
 import os
 import time
+import zlib
 
 import numpy as np
 
@@ -80,6 +81,24 @@ class Engine:
     def detect_language(self, audio, settings):
         return None, 0.0
 
+    # "Check stretches without speech" bookkeeping, shown in Raw output
+    def _gap_info(self, info):
+        for k in ("stretches", "checked_s", "silent_s"):
+            self.stats["gap_" + k] = self.stats.get("gap_" + k, 0) + info[k]
+
+    def _gap_note(self, start, text, why):
+        notes = self.stats.setdefault("gap_notes", [])
+        if len(notes) < 50:
+            notes.append({"start": start, "text": text[:120], "why": why})
+
+    def _gap_done(self, b, e, kept):
+        if kept:
+            self.stats["gap_kept"] = self.stats.get("gap_kept", 0) + 1
+            self.stats["gap_found_s"] = self.stats.get("gap_found_s", 0.0) + (e - b) / SR
+            self.stats["speech_s"] = self.stats.get("speech_s", 0.0) + (e - b) / SR
+        else:
+            self.stats["gap_dropped"] = self.stats.get("gap_dropped", 0) + 1
+
 
 # ======================================================================== Whisper
 class WhisperEngine(Engine):
@@ -121,6 +140,7 @@ class WhisperEngine(Engine):
         word_ts = bool(s.get("advanced.word_timestamps"))
         hw = " ".join(hotwords).strip() or None
         vad = audioproc.vad_options(s)
+        vad_off = bool(s.get("advanced.vad_off"))  # Whisper reads everything, silence included
         kw = dict(language=self.resolve_language(language), task="transcribe", beam_size=beam,
                   best_of=max(beam, 1), temperature=temps,
                   compression_ratio_threshold=float(s.get("advanced.compression_ratio")),
@@ -130,19 +150,39 @@ class WhisperEngine(Engine):
                   repetition_penalty=float(s.get("advanced.repetition_penalty")),
                   word_timestamps=word_ts,
                   hallucination_silence_threshold=float(s.get("advanced.skip_silence")) if word_ts else None,
-                  vad_filter=True,  # silence never reaches Whisper
+                  vad_filter=not vad_off,  # normally silence never reaches Whisper
                   vad_parameters={"threshold": vad.threshold,
                                   "min_silence_duration_ms": vad.min_silence_duration_ms,
                                   "speech_pad_ms": vad.speech_pad_ms},
                   hotwords=hw)
         t0 = time.perf_counter()
         audioproc.install_windowed_vad()  # issue #1: voice detection in 30-s windows, not over the whole block
+        gaps, holes = [], []
+        if vad_off:
+            self.stats["vad_off"] = True
+        else:
+            from faster_whisper.vad import VadOptions
+            ts = audioproc.windowed_speech_timestamps(audio, VadOptions(**kw["vad_parameters"]))  # reused by Whisper
+            holes = [a["end"] / SR for a, b in zip(ts, ts[1:]) if b["start"] - a["end"] >= 5 * SR]
+            if s.get("advanced.gap_check"):
+                gaps, gi = audioproc.gap_pieces(audio, [(t["start"], t["end"]) for t in ts],
+                                                float(s.get("advanced.gap_min_s")), 30.0)
+                self._gap_info(gi)
         segments, info = self.model.transcribe(audio, **kw)
         seeks = set()
         prompt = 3 + (len(self.model.hf_tokenizer.encode(" " + hw).ids) + 1 if hw else 0)
+        gap_kw = dict(kw, vad_filter=False, condition_on_previous_text=False,
+                      language=kw["language"] or info.language)
         try:
             for seg in segments:
+                while gaps and gaps[0][0] / SR <= seg.start and not cancel.is_set():
+                    yield from self._gap(audio, offset, gaps.pop(0), gap_kw, info.language, progress)
                 seeks.add(seg.seek)
+                seg_end = seg.end
+                for h in holes:  # faster-whisper can stretch a line's end across a stretch without speech
+                    if seg.start < h < seg_end - 1.0:
+                        seg_end = h
+                        break
                 text = seg.text.strip()
                 self.stats["out_tokens"] += len(seg.tokens)
                 progress(offset + seg.end)
@@ -157,13 +197,15 @@ class WhisperEngine(Engine):
                         if not text:
                             continue
                 flag = "check" if seg.avg_logprob < -1.0 else ""
-                raw = (f"[{fmt(offset + seg.start)} - {fmt(offset + seg.end)}] logprob={seg.avg_logprob:.2f} "
+                raw = (f"[{fmt(offset + seg.start)} - {fmt(offset + seg_end)}] logprob={seg.avg_logprob:.2f} "
                        f"no_speech={seg.no_speech_prob:.2f} compression={seg.compression_ratio:.2f} "
                        f"temperature={seg.temperature} | {text}" + (f"   (hotword echo removed from: {orig_text})" if hw and echoed else ""))
-                yield {"start": offset + seg.start, "end": offset + seg.end, "text": text,
+                yield {"start": offset + seg.start, "end": offset + seg_end, "text": text,
                        "lang": info.language, "flag": flag, "raw": raw}
                 if cancel.is_set():
                     break
+            while gaps and not cancel.is_set():
+                yield from self._gap(audio, offset, gaps.pop(0), gap_kw, info.language, progress)
         finally:
             windows = max(len(seeks), math.ceil(info.duration_after_vad / 30.0)) if info.duration_after_vad else len(seeks)
             self.stats["speech_tokens"] += 1500 * windows
@@ -173,6 +215,37 @@ class WhisperEngine(Engine):
             self.stats["language"] = info.language
             self.stats["language_prob"] = float(info.language_probability or 0)
 
+    def _gap(self, audio, offset, piece, kw, lang, progress):
+        """Transcribe one piece of a stretch where voice detection found no speech; keep only confident text."""
+        b, e = piece
+        segments, _ = self.model.transcribe(audio[b:e], **kw)
+        self.stats["speech_tokens"] += 1500
+        kept = False
+        for seg in segments:
+            self.stats["out_tokens"] += len(seg.tokens)
+            text = seg.text.strip()
+            start = offset + b / SR + min(seg.start, (e - b) / SR)
+            end = offset + b / SR + min(seg.end, (e - b) / SR)  # Whisper pads a short piece to 30 s
+            progress(end)
+            if not text:
+                continue
+            why = ""
+            if seg.no_speech_prob > 0.5:
+                why = f"probably not speech (no_speech {seg.no_speech_prob:.2f})"
+            elif seg.avg_logprob < -0.9:
+                why = f"model unsure (logprob {seg.avg_logprob:.2f})"
+            elif seg.compression_ratio > 2.4:
+                why = "repeats itself"
+            else:
+                ok, why = keep_gap_text(text, max(seg.end - seg.start, 0.5))
+            if why:
+                self._gap_note(start, text, why)
+                continue
+            kept = True
+            raw = (f"[{fmt(start)} - {fmt(end)}] (stretch without detected speech) logprob={seg.avg_logprob:.2f} "
+                   f"no_speech={seg.no_speech_prob:.2f} compression={seg.compression_ratio:.2f} | {text}")
+            yield {"start": start, "end": end, "text": text, "lang": lang, "flag": "", "raw": raw}
+        self._gap_done(b, e, kept)
 
 # ======================================================================== sherpa-onnx
 class SherpaEngine(Engine):
@@ -246,9 +319,14 @@ class SherpaEngine(Engine):
         max_piece = min(float(settings.get("advanced.max_piece_s")), 25.0)
         pieces = audioproc.speech_pieces(audio, settings, max_piece)
         self.stats["speech_s"] = self.stats.get("speech_s", 0.0) + sum(e - b for b, e in pieces) / SR
+        gaps = []
+        if settings.get("advanced.gap_check"):
+            gaps, gi = audioproc.gap_pieces(audio, pieces, float(settings.get("advanced.gap_min_s")), max_piece)
+            self._gap_info(gi)
+        work = sorted([(b, e, False) for b, e in pieces] + [(b, e, True) for b, e in gaps])
         t0 = time.perf_counter()
         try:
-            for b, e in pieces:
+            for b, e, is_gap in work:
                 if cancel.is_set():
                     break
                 r = self._decode(audio[b:e])
@@ -266,11 +344,45 @@ class SherpaEngine(Engine):
                     lang = getattr(r, "lang", "").strip("<|>") or lang
                     tags = f"{getattr(r, 'lang', '')}{getattr(r, 'emotion', '')}{getattr(r, 'event', '')} "
                 raw = f"[{fmt(start)} - {fmt(end)}] {tags}{text}"
+                if is_gap:
+                    why = ""
+                    if text:
+                        ok, why = keep_gap_text(text, e / SR - b / SR, getattr(r, "event", ""))
+                        if why:
+                            self._gap_note(start, text, why)
+                    self._gap_done(b, e, bool(text) and not why)
+                    if why:
+                        continue
+                    raw = f"[{fmt(start)} - {fmt(end)}] (stretch without detected speech) {tags}{text}"
                 if not text:
                     continue
                 yield {"start": start, "end": end, "text": text, "lang": lang, "flag": "", "raw": raw}
         finally:
             self.stats["recog_s"] += time.perf_counter() - t0
+
+
+_CJK = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\uf900-\ufaff]")
+_WORD = re.compile(r"[^\W_]+", re.UNICODE)
+NON_SPEECH_EVENTS = ("BGM", "Applause", "Laughter", "Cry", "Sneeze", "Breath", "Cough")
+
+
+def keep_gap_text(text, dur, event=""):
+    """Is text from a stretch without detected speech worth keeping? -> (True, "") or (False, reason).
+    Models tend to invent short phrases, fast streams or repeats in noise and music."""
+    cjk = len(_CJK.findall(text))
+    words = len(_WORD.findall(_CJK.sub(" ", text)))
+    if cjk + words < 2:
+        return False, "too short to tell from noise"
+    dur = max(float(dur), 0.5)
+    if cjk / dur > 9 or words / dur > 5:
+        return False, "too fast for speech"
+    raw = text.encode("utf-8")
+    if len(raw) >= 24 and len(raw) / len(zlib.compress(raw)) > 2.4:
+        return False, "repeats itself"
+    ev = (event or "").strip("<|>")
+    if ev in NON_SPEECH_EVENTS and cjk + words < 8:
+        return False, f"sounds like {ev.lower()}, not speech"
+    return True, ""
 
 
 def _norm_words(t):

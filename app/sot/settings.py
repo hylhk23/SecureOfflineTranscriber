@@ -92,6 +92,9 @@ DEFAULTS = {
     "advanced.vad_min_silence_ms": 500,
     "advanced.vad_pad_ms": 300,
     "advanced.max_piece_s": 15,
+    "advanced.vad_off": False,             # Whisper only: no voice detection, Whisper reads everything
+    "advanced.gap_check": True,            # still listen to long stretches where no speech was detected
+    "advanced.gap_min_s": 20,
     "advanced.normalise": True,
     "advanced.target_dbfs": -23.0,
     "advanced.max_gain_db": 35.0,
@@ -114,7 +117,7 @@ GROUPS = {
                  "advanced.no_speech", "advanced.carry_previous", "advanced.repetition_penalty",
                  "advanced.word_timestamps", "advanced.skip_silence"],
     "Voice detection": ["advanced.vad_threshold", "advanced.vad_min_silence_ms", "advanced.vad_pad_ms",
-                        "advanced.max_piece_s"],
+                        "advanced.max_piece_s", "advanced.gap_check", "advanced.gap_min_s", "advanced.vad_off"],
     "Audio": ["advanced.normalise", "advanced.target_dbfs", "advanced.max_gain_db", "advanced.stereo",
               "advanced.noise_reduction", "advanced.noise_in_player"],
     "Invented-text filter": ["advanced.filter_known", "advanced.filter_list", "advanced.repeat_limit"],

@@ -50,13 +50,24 @@ def _silero():
     return vad
 
 
+_last = {"key": None, "out": None}  # the last result, so Whisper's own call reuses what the stretch check computed
+
+
 def windowed_speech_timestamps(audio, vad_options=None, sampling_rate=16000, **kwargs):
     """Same arguments and result as faster_whisper.vad.get_speech_timestamps, computed in 30-s windows:
     [{"start": sample, "end": sample}], sorted, overlaps joined, pieces no longer than max_speech_duration_s."""
     vad = _silero()
-    base = vad.get_speech_timestamps
     if vad_options is None:
         vad_options = vad.VadOptions(**kwargs)
+    key = (id(audio), len(audio), sampling_rate, repr(vad_options),
+           float(np.asarray(audio[::4001], dtype=np.float64).sum()) if len(audio) else 0.0)
+    if _last["key"] != key:
+        _last.update(key=key, out=_windowed(audio, vad, vad_options, sampling_rate))
+    return [dict(t) for t in _last["out"]]
+
+
+def _windowed(audio, vad, vad_options, sampling_rate):
+    base = vad.get_speech_timestamps
     n = len(audio)
     win = int(VAD_WINDOW_S * sampling_rate)
     ov = int(VAD_OVERLAP_S * sampling_rate)
@@ -102,6 +113,52 @@ def speech_pieces(audio, settings, max_piece_s):
     ts = windowed_speech_timestamps(audio, vad_options(settings, max_piece_s))
     segs = [(t["start"], t["end"]) for t in ts]
     return merge_and_split(segs, max_gap=int(0.5 * SR), max_len=int(max_piece_s * SR))
+
+
+# "Check stretches without speech": where voice detection found no speech for a while, the model still listens,
+# in pieces cut at the quietest moments; near-silent pieces are skipped and only confident text is kept
+# (engines.keep_gap_text). A safety net for recordings where voice detection misses speech.
+SILENT_DBFS = -50.0  # a piece whose loudest moments stay below this is silence: not worth the model's time
+
+
+def frame_db(audio, frame=SR // 10):
+    """Level of each 100-ms frame in dBFS."""
+    n = len(audio) // frame
+    if n == 0:
+        return np.array([-120.0])
+    f = audio[: n * frame].reshape(n, frame).astype(np.float64)
+    return 20 * np.log10(np.sqrt(np.mean(f ** 2, axis=1)) + 1e-9)
+
+
+def gap_pieces(audio, speech, min_gap_s=20.0, max_piece_s=25.0, silent_dbfs=SILENT_DBFS):
+    """Stretches of at least min_gap_s with no detected speech (speech = [(start, end)] in samples), cut into pieces
+    of at most max_piece_s at the quietest 100 ms. -> (pieces [(start, end)], info)."""
+    n = len(audio)
+    fr = SR // 10
+    gaps, t = [], 0
+    for b, e in sorted(speech):
+        if b - t >= min_gap_s * SR:
+            gaps.append((t, b))
+        t = max(t, e)
+    if n - t >= min_gap_s * SR:
+        gaps.append((t, n))
+    maxlen = int(max_piece_s * SR)
+    pieces, checked, silent = [], 0, 0
+    for gb, ge in gaps:
+        checked += ge - gb
+        b = gb
+        while b < ge:
+            e = min(ge, b + maxlen)
+            if e < ge:  # cut at the quietest moment in the last 40 % of the piece, not inside a word
+                lo = b + int(0.6 * maxlen)
+                e = lo + int(np.argmin(frame_db(audio[lo:e], fr))) * fr + fr // 2
+            if e - b >= SR // 2:
+                if np.percentile(frame_db(audio[b:e], fr), 95) < silent_dbfs:
+                    silent += e - b
+                else:
+                    pieces.append((b, e))
+            b = e
+    return pieces, {"stretches": len(gaps), "checked_s": checked / SR, "silent_s": silent / SR}
 
 
 def silent_stretches(segments, duration, min_gap_s=60.0):

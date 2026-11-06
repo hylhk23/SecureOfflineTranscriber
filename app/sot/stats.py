@@ -29,8 +29,13 @@ def time_tooltip(st):
 
 def audio_tooltip(st):
     out = []
-    if st.get("speech_s") is not None:
+    if st.get("vad_off"):
+        out.append("Voice detection off: Whisper read the whole recording")
+    elif st.get("speech_s") is not None:
         out.append(f"Speech found {fmt_clock(st.get('speech_s', 0))} of {fmt_clock(st.get('duration', 0))}")
+    if st.get("gap_checked_s"):
+        out.append(f"Stretches without detected speech checked: {fmt_clock(st['gap_checked_s'])}, "
+                   f"text found in {fmt_clock(st.get('gap_found_s', 0))}")
     lang = st.get("language")
     if lang:
         p = st.get("language_prob")

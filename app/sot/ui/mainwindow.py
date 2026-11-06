@@ -1049,7 +1049,8 @@ class MainWindow(QMainWindow):
                            "language_detected": j["chosen_lang"] == "auto", "clean_s": time.perf_counter() - t_clean})
         if rs:  # totals over every run of this file
             for k in ("read_s", "lid_s", "load_s", "recog_s", "speech_s", "speech_tokens", "text_tokens",
-                      "out_tokens", "clean_s"):
+                      "out_tokens", "clean_s", "gap_stretches", "gap_checked_s", "gap_silent_s", "gap_kept",
+                      "gap_dropped", "gap_found_s"):
                 self.stats[k] = (prev.get(k) or 0) + (self.stats.get(k) or 0)
             for k in ("language_prob", "gain_db"):
                 if not self.stats.get(k) and prev.get(k):
@@ -1099,6 +1100,18 @@ class MainWindow(QMainWindow):
     def _speech_check(self, audio_s, cancelled):
         """Issue #1: list long stretches without text in Raw output, and warn when little of the recording was
         recognised as speech (speech may have been missed). Returns the warning text, or None."""
+        st = self.stats
+        if st.get("vad_off"):
+            self.cleanup_log.append("Voice detection was off: Whisper read the whole recording, silence included")
+        if st.get("gap_stretches"):
+            n, kept, dropped = int(st["gap_stretches"]), int(st.get("gap_kept", 0)), int(st.get("gap_dropped", 0))
+            self.cleanup_log.append(
+                f"Checked {n} stretch{'es' if n != 1 else ''} without detected speech "
+                f"({media.fmt_clock(st.get('gap_checked_s', 0))}): {media.fmt_clock(st.get('gap_silent_s', 0))} silent; "
+                f"text kept from {kept} piece{'s' if kept != 1 else ''} ({media.fmt_clock(st.get('gap_found_s', 0))}), "
+                f"not kept from {dropped}")
+        for n in (st.get("gap_notes") or [])[:20]:
+            self.cleanup_log.append(f"Not kept [{media.fmt_clock(n['start'])}] \"{n['text']}\" - {n['why']}")
         for a, b in audioproc.silent_stretches(self.segments, audio_s)[:10]:
             self.cleanup_log.append(f"No text from {media.fmt_clock(a)} to {media.fmt_clock(b)} "
                                     f"({(b - a) / 60:.0f} min)")
@@ -1108,9 +1121,10 @@ class MainWindow(QMainWindow):
         sp = float(self.stats.get("speech_s") or 0)
         note = (f"Only {frac:.0%} of this recording ({media.fmt_clock(sp)} of {media.fmt_clock(audio_s)}) was "
                 "recognised as speech, so parts where people talk may be missing from the transcript.\n\n"
-                "Raw output lists the stretches without text. If people talk there, lower Speech threshold in "
-                "Options > Advanced > Voice detection (for example to 0.35), turn Noise reduction off, and use "
-                "Transcribe > Start Again from the Beginning.")
+                "Raw output lists the stretches without text. If people talk there, go to Options > Advanced > "
+                "Voice detection: lower Speech threshold (for example to 0.35) and keep 'Check stretches without "
+                "speech' ticked, or with a Whisper model tick 'Voice detection off'. Turn Noise reduction off too, "
+                "then use Transcribe > Start Again from the Beginning.")
         self.cleanup_log.append(f"Warning: only {frac:.0%} of the recording was recognised as speech")
         log.warning("little speech found: %.0f%% of %.0f s", frac * 100, audio_s)
         return note
@@ -1224,7 +1238,9 @@ class MainWindow(QMainWindow):
                 f"Settings: language {s.get('transcription.language')}, model {s.get('transcription.model')}, "
                 f"speed {s.get('transcription.speed')}, beam {s.get('advanced.beam') or 'follow speed'}, "
                 f"VAD threshold {s.get('advanced.vad_threshold')}, min silence {s.get('advanced.vad_min_silence_ms')} ms, "
-                f"padding {s.get('advanced.vad_pad_ms')} ms, normalise {s.get('advanced.normalise')} "
+                f"padding {s.get('advanced.vad_pad_ms')} ms, "
+                f"check stretches without speech {'≥ %s s' % s.get('advanced.gap_min_s') if s.get('advanced.gap_check') else 'off'}, "
+                f"voice detection off (Whisper) {s.get('advanced.vad_off')}, normalise {s.get('advanced.normalise')} "
                 f"({s.get('advanced.target_dbfs')} dBFS, max +{s.get('advanced.max_gain_db')} dB), "
                 f"noise reduction {s.get('advanced.noise_reduction')}, "
                 f"compute {s.get('advanced.compute_type')}, vocabulary set '{s.get('vocabulary.active')}'",

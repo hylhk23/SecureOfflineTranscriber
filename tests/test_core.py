@@ -433,3 +433,139 @@ def test_low_speech_warning_and_silent_stretches():
     assert round(audioproc.low_speech(308, 1800), 2) == 0.17  # the issue's first block
     assert audioproc.low_speech(1667, 1800) is None
     assert audioproc.low_speech(10, 60) is None  # short files are not judged
+
+
+# ---------------------------------------------------------------- stretches without speech, voice detection off
+import threading  # noqa: E402
+
+from sot import audioproc, engines  # noqa: E402
+
+
+def test_gap_pieces_cut_quiet_and_skip_silence():
+    sr = audioproc.SR
+    rng = np.random.default_rng(3)
+    a = np.zeros(200 * sr, np.float32)
+    a[: 10 * sr] = 0.1 * rng.standard_normal(10 * sr)            # speech 0-10 s (detected)
+    a[10 * sr: 80 * sr] = 0.05 * rng.standard_normal(70 * sr)    # 70 s nobody detected: must be checked
+    for k in range(10, 80, 7):                                    # with short pauses to cut at
+        a[k * sr: k * sr + sr // 5] = 0
+    a[190 * sr:] = 0.1 * rng.standard_normal(10 * sr)            # speech 190-200 s; 80-190 s is digital silence
+    speech = [(0, 10 * sr), (190 * sr, 200 * sr)]
+    pieces, info = audioproc.gap_pieces(a, speech, min_gap_s=20, max_piece_s=25)
+    assert info["stretches"] == 1 and abs(info["checked_s"] - 180) < 0.01
+    assert abs(info["silent_s"] - 110) < 25                       # the silence is skipped, not transcribed
+    assert pieces[0][0] == 10 * sr and all(e - b <= 25 * sr for b, e in pieces)
+    assert all(b < 81 * sr for b, _ in pieces)                    # nothing starts in the silent part
+    for b, e in pieces[:-1]:                                     # cuts land in the pauses, not in the noise
+        assert np.abs(a[e - 800:e + 800]).max() < 0.2 or e >= 80 * sr
+    # short stretches are left alone
+    assert audioproc.gap_pieces(a, [(0, 10 * sr), (25 * sr, 200 * sr)], min_gap_s=20)[0] == []
+
+
+def test_keep_gap_text():
+    assert engines.keep_gap_text("我哋今日要傾下個季度嘅預算", 4.0) == (True, "")
+    assert engines.keep_gap_text("We need to look at the budget again.", 3.0) == (True, "")
+    assert not engines.keep_gap_text("The.", 5.0)[0]
+    assert not engines.keep_gap_text("嗯", 2.0)[0]
+    assert "repeats" in engines.keep_gap_text("謝謝 謝謝 謝謝 謝謝 謝謝 謝謝 謝謝 謝謝 謝謝 謝謝", 20.0)[1]
+    assert "fast" in engines.keep_gap_text("one two three four five six seven eight nine ten eleven twelve", 1.0)[1]
+    assert not engines.keep_gap_text("La la la", 3.0, "<|BGM|>")[0]
+    assert engines.keep_gap_text("We need to look at the budget again tomorrow morning.", 4.0, "<|BGM|>")[0]
+
+
+class _R:
+    def __init__(self, text, event="<|Speech|>"):
+        self.text, self.lang, self.emotion, self.event, self.tokens = text, "<|en|>", "<|NEUTRAL|>", event, [1, 2]
+
+
+def test_sherpa_checks_stretches_in_time_order(monkeypatch):
+    sr = audioproc.SR
+    a = np.zeros(120 * sr, np.float32)
+    a[30 * sr: 100 * sr] = 0.05 * np.random.default_rng(1).standard_normal(70 * sr)
+    eng = engines.SherpaEngine("sensevoice")
+    eng._build = lambda lang: None
+    monkeypatch.setattr(audioproc, "speech_pieces", lambda audio, s, m: [(0, 5 * sr), (110 * sr, 115 * sr)])
+
+    def decode(chunk):
+        n = len(chunk) / sr
+        return _R("Hello there." if n <= 5 else ("Missed speech found here." if n > 10 else "The."))
+    eng._decode = decode
+    ev = threading.Event()
+    out = list(eng.transcribe(a, 0.0, "en", Settings(values={}), [], ev, lambda t: None))
+    starts = [x["start"] for x in out]
+    assert starts == sorted(starts) and out[0]["text"] == "Hello there." and out[-1]["text"] == "Hello there."
+    found = [x for x in out if "Missed" in x["text"]]
+    assert found and all("(stretch without detected speech)" in x["raw"] for x in found)
+    st = eng.stats
+    assert st["gap_stretches"] == 1 and st["gap_kept"] == len(found) and st["speech_s"] > 10 + 20
+    off = engines.SherpaEngine("sensevoice")
+    off._build, off._decode = eng._build, decode
+    out2 = list(off.transcribe(a, 0.0, "en", Settings(values={"advanced.gap_check": False}), [], ev, lambda t: None))
+    assert [x["text"] for x in out2] == ["Hello there.", "Hello there."] and "gap_stretches" not in off.stats
+
+
+class _Seg:
+    def __init__(self, start, end, text, nsp=0.05, lp=-0.3, seek=0):
+        self.start, self.end, self.text, self.no_speech_prob, self.avg_logprob = start, end, text, nsp, lp
+        self.compression_ratio, self.temperature, self.tokens, self.seek = 1.2, 0.0, [1, 2, 3], seek
+
+
+class _Info:
+    language, language_probability = "en", 0.99
+
+    def __init__(self, after):
+        self.duration_after_vad = after
+
+
+class _FakeWhisper:
+    def __init__(self):
+        self.calls = []
+        self.model = type("M", (), {"is_multilingual": True})()
+        self.hf_tokenizer = type("T", (), {"token_to_id": staticmethod(lambda t: 1)})()
+
+    def transcribe(self, audio, **kw):
+        self.calls.append(kw)
+        if kw["vad_filter"]:  # main pass: speech at 0-10 s and 110-120 s; the stretch end time leaks over the gap
+            return iter([_Seg(0, 30.0, "First line."), _Seg(110, 118, "Last line.")]), _Info(20.0)
+        n = len(audio) / audioproc.SR
+        return iter([_Seg(0, n + 3, "Words the detector missed.") if n > 10 else
+                     _Seg(0, n, "You", nsp=0.9)]), _Info(n)
+
+
+def test_whisper_checks_stretches_and_can_switch_detection_off(monkeypatch):
+    sr = audioproc.SR
+    a = np.zeros(120 * sr, np.float32)
+    a[12 * sr: 105 * sr] = 0.05 * np.random.default_rng(2).standard_normal(93 * sr)
+    monkeypatch.setattr(audioproc, "windowed_speech_timestamps",
+                        lambda audio, opts=None, sr=16000, **k: [{"start": 0, "end": 10 * sr}, {"start": 110 * sr, "end": 120 * sr}])
+    eng = engines.WhisperEngine()
+    eng.model = _FakeWhisper()
+    ev = threading.Event()
+    out = list(eng.transcribe(a, 0.0, "en", Settings(values={}), [], ev, lambda t: None))
+    texts = [x["text"] for x in out]
+    assert texts[0] == "First line." and texts[-1] == "Last line." and "Words the detector missed." in texts
+    assert out[0]["end"] <= 10.0 + 0.01                            # clipped at the skipped stretch
+    assert all(b["start"] >= a_["end"] - 0.01 for a_, b in zip(out, out[1:]))
+    assert all(not c["vad_filter"] and not c["condition_on_previous_text"] for c in eng.model.calls[1:])
+    assert eng.stats["gap_kept"] >= 1 and eng.stats["speech_s"] > 20
+    # voice detection off: one pass over everything, no stretch check
+    eng2 = engines.WhisperEngine()
+    eng2.model = _FakeWhisper()
+    list(eng2.transcribe(a, 0.0, "en", Settings(values={"advanced.vad_off": True}), [], ev, lambda t: None))
+    assert len(eng2.model.calls) == 1 and eng2.model.calls[0]["vad_filter"] is False and eng2.stats["vad_off"]
+
+
+def test_vad_result_reused_for_the_same_audio(monkeypatch):
+    sr = audioproc.SR
+    a = np.random.default_rng(4).standard_normal(70 * sr).astype(np.float32) * 0.01
+    vad = audioproc._silero()
+    calls = []
+    monkeypatch.setattr(vad, "get_speech_timestamps", lambda x, o, s: calls.append(len(x)) or [])
+    audioproc._last["key"] = None
+    opts = vad.VadOptions(threshold=0.5)
+    audioproc.windowed_speech_timestamps(a, opts)
+    n = len(calls)
+    audioproc.windowed_speech_timestamps(a, opts)
+    assert len(calls) == n                                        # second call: no new detection
+    audioproc.windowed_speech_timestamps(a, vad.VadOptions(threshold=0.4))
+    assert len(calls) > n                                         # other options: detected again

@@ -163,6 +163,13 @@ def run_job(job, engines, emit, cancel):
         audio = read_block(start)
     for k in ("speech_tokens", "text_tokens", "out_tokens", "recog_s", "speech_s"):
         stats[k] += eng.stats.get(k, 0)
+    for k in ("gap_stretches", "gap_checked_s", "gap_silent_s", "gap_kept", "gap_dropped", "gap_found_s"):
+        if eng.stats.get(k):
+            stats[k] = stats.get(k, 0) + eng.stats[k]
+    if eng.stats.get("gap_notes"):
+        stats["gap_notes"] = eng.stats["gap_notes"]
+    if eng.stats.get("vad_off"):
+        stats["vad_off"] = True
     if "language_prob" not in stats and eng.stats.get("language_prob"):
         stats["language_prob"] = eng.stats["language_prob"]
     emit("progress", total if not cancel.is_set() else stats.get("stopped_at", 0), total,

@@ -12,6 +12,12 @@ WHAT'S NEW IN 2.2.1
   so large parts of the transcript were missing (GitHub issue #1). It now listens in
   30-second windows. If less than 40% of a recording is recognised as speech, a warning
   says so, and Raw output lists the stretches of a minute or more without text.
+- New safety net, on by default: Options > Advanced > Voice detection > "Check stretches
+  without speech". Where no speech was detected for 20 seconds or more, the model still
+  listens and keeps only text it is sure of. Silent parts are skipped.
+- New for Whisper models: "Voice detection off (Whisper only)" in the same place. Whisper
+  then reads the whole recording, silence included: nothing is skipped, but it is slower
+  and may invent text in silence, music or noise.
 
 WHAT'S NEW IN 2.2.0
 -------------------

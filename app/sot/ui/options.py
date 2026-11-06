@@ -1322,6 +1322,15 @@ META = {
     "advanced.vad_min_silence_ms": ("Shortest silence that splits speech (ms)", "int", (100, 2000), ""),
     "advanced.vad_pad_ms": ("Padding around speech (ms)", "int", (0, 1000), "Keeps the first and last syllables."),
     "advanced.max_piece_s": ("Longest piece (SenseVoice, Parakeet, Moonshine) (s)", "int", (5, 25), ""),
+    "advanced.gap_check": ("Check stretches without speech", "bool", None,
+                           "Where voice detection found no speech for a while, the model still listens and keeps "
+                           "only text it is sure of. A safety net when voice detection misses speech; slower on "
+                           "recordings with long breaks."),
+    "advanced.gap_min_s": ("Check stretches of at least (s)", "int", (10, 300), "Shorter catches more but takes longer."),
+    "advanced.vad_off": ("Voice detection off (Whisper only)", "bool", None,
+                         "Whisper reads the whole recording, silence included, so nothing is skipped. Slower, and "
+                         "Whisper may invent text in silence, music or noise. For continuous speech (lectures) or "
+                         "recordings where voice detection misses speech. Other models always use voice detection."),
     "advanced.normalise": ("Normalise volume", "bool", None, "Raises quiet recordings so speech is easier to hear for the model."),
     "advanced.target_dbfs": ("Target level (dBFS)", "float", (-40.0, -10.0, 1.0), ""),
     "advanced.max_gain_db": ("Largest boost (dB)", "float", (0.0, 50.0, 1.0), ""),
@@ -1401,6 +1410,7 @@ class AdvancedTab(QWidget):
             sig = {"bool": "toggled", "int": "valueChanged", "float": "valueChanged", "choice": "currentIndexChanged",
                    "list": "textChanged"}[kind]
             getattr(w, sig).connect(lambda *_, key=k: self.bold(key))
+        self.inputs["advanced.gap_check"][1].toggled.connect(self._gap_enabled)
         self.load(dlg.work)
 
     def _make(self, kind, rng):
@@ -1453,7 +1463,12 @@ class AdvancedTab(QWidget):
     def load(self, s):
         for k in self.inputs:
             self.put(k, s.get(k))
+        self._gap_enabled(self.value("advanced.gap_check"))
         self.refresh_info()
+
+    def _gap_enabled(self, on):
+        self.inputs["advanced.gap_min_s"][1].setEnabled(bool(on))
+        self.labels["advanced.gap_min_s"].setEnabled(bool(on))
 
     def collect(self, s):
         for k in self.inputs:
@@ -1488,6 +1503,9 @@ class AdvancedTab(QWidget):
         whisper = m is None or m.kind == "whisper"
         self.decoding_box.setEnabled(whisper)
         self.decoding_box.setToolTip("" if whisper else "Whisper only: the chosen model is " + m.name)
+        for k in ("advanced.vad_off",):
+            self.inputs[k][1].setEnabled(whisper)
+            self.labels[k].setEnabled(whisper)
 
     def clear_temp(self):
         tmp = system.temp_folder(self.dlg.settings)
