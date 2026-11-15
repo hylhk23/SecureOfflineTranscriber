@@ -51,6 +51,19 @@ Board meetings, HR interviews, client calls: many recordings should not be uploa
 - there is no account, analytics, crash reporting or update server. Logs hold file names and timings, never transcript text;
 - **Options > Advanced > Privacy check** lists every folder the program uses and confirms no network port is open.
 
+### No installation, no admin rights
+It is a portable application. Copy the folder to any location you can write to (your Documents, a D: drive, a USB stick) and double-click `run.bat` (on a Mac, `run.command`). Nothing is installed and **no administrator rights are needed**, so it works on a managed work PC where you cannot install software. Settings, logs and downloaded models stay inside the program folder. To remove it, delete the folder.
+
+### Unlikely to trigger antivirus false alarms
+Secure Offline Transcriber runs directly on the official, digitally signed Python interpreter from python.org, and its own code ships as plain, readable source files. It has no `.exe` program file of its own that an antivirus engine could flag:
+- the package contains three programs: `python.exe` and `pythonw.exe`, the official Python 3.13 interpreter from python.org, **digitally signed by the Python Software Foundation**, and `ffmpeg.exe`, the unmodified FFmpeg build from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) that reads audio and video files (FFmpeg builds are not signed; its source and checksum are listed in `ffmpeg\SOURCE.txt`);
+- everything else is plain Python source code (`.py`), which you can read, and standard library files (`.pyd`, `.dll`) from python.org and the Python Package Index, plus the AI summary engine in `llamacpp\`: the official llama.cpp libraries, unmodified (not signed), without llama.cpp's programs or its network component;
+- `verify-files.bat` checks every file against the list of checksums shipped with the package.
+
+Many other Python programs are instead packed into a single `.exe` with tools such as PyInstaller, and antivirus engines sometimes flag such packed programs by mistake. At work this can be disruptive: when the company's security software raises an alert, even a false one, the IT department may cut your computer off the network straight away until the alert has been checked. Secure Offline Transcriber uses no packer at all, so it is much less likely to cause such an alert.
+
+On a Mac, the package contains two programs: `python3.13`, built by the [python-build-standalone](https://github.com/astral-sh/python-build-standalone) project, and `ffmpeg`, FFmpeg 9.0 for Apple silicon taken unmodified from the [imageio-ffmpeg](https://pypi.org/project/imageio-ffmpeg/) package. Like every library file in the package, they are signed ad hoc, as Apple silicon requires, but not notarized by Apple, so macOS asks once before running them (see [macOS](#macos-apple-silicon)). The AI summary engine in `llamacpp/` is llama.cpp's official macOS libraries, unmodified, with their own signatures; its network library is included because the other libraries link to it, and the program never gives it a server address. `verify-files.command` checks every file.
+
 ### English, French, Cantonese and Mandarin
 Choose the language, or let the program detect it. **Automatic** picks a suitable installed model for each language, for example Whisper large-v3-turbo or Parakeet for English and French, and SenseVoiceSmall for Cantonese (including Cantonese mixed with English) and Mandarin; SenseVoiceSmall is an optional 240 MB download. Chinese text is written in Traditional (Hong Kong or Taiwan) or Simplified characters, as you prefer. How accurate a transcript is depends on the recording: clear audio from a nearby microphone gives the best results.
 
@@ -80,17 +93,6 @@ Speech models write English mostly in American spelling. **Options > Transcripti
 
 ### Long recordings: resume and queue
 Stop a long transcription when you need the PC and press **Resume** later: it carries on from where it stopped, with the same model and language, and keeps any corrections you made in the meantime. The text is also saved every few seconds while a job runs, so after a crash or power cut the program offers to resume. Several files can be queued and are saved one by one.
-
-### No installation, no admin rights
-It is a portable application. Copy the folder to any location you can write to (your Documents, a D: drive, a USB stick) and double-click `run.bat` (on a Mac, `run.command`). Nothing is installed and **no administrator rights are needed**, so it works on a managed work PC where you cannot install software. Settings, logs and downloaded models stay inside the program folder. To remove it, delete the folder.
-
-### Unlikely to trigger antivirus false alarms
-Python programs packed into an `.exe` with tools such as PyInstaller are sometimes flagged by antivirus engines. Secure Offline Transcriber avoids that packing:
-- the package contains three programs: `python.exe` and `pythonw.exe`, the official Python 3.13 interpreter from python.org, **digitally signed by the Python Software Foundation**, and `ffmpeg.exe`, the unmodified FFmpeg build from gyan.dev that reads audio and video files (FFmpeg builds are not signed; its source and checksum are listed in `ffmpeg\SOURCE.txt`);
-- everything else is plain Python source code (`.py`), which you can read, and standard library files (`.pyd`, `.dll`) from python.org and the Python Package Index, plus the AI summary engine in `llamacpp\`: the official llama.cpp libraries, unmodified (not signed), without llama.cpp's programs or its network component;
-- `verify-files.bat` checks every file against the list of checksums shipped with the package.
-
-On a Mac, the package contains two programs: `python3.13`, built by the [python-build-standalone](https://github.com/astral-sh/python-build-standalone) project, and `ffmpeg`, FFmpeg 9.0 for Apple silicon taken unmodified from the [imageio-ffmpeg](https://pypi.org/project/imageio-ffmpeg/) package. Like every library file in the package, they are signed ad hoc, as Apple silicon requires, but not notarized by Apple, so macOS asks once before running them (see [macOS](#macos-apple-silicon)). The AI summary engine in `llamacpp/` is llama.cpp's official macOS libraries, unmodified, with their own signatures; its network library is included because the other libraries link to it, and the program never gives it a server address. `verify-files.command` checks every file.
 
 ### Other useful features
 - Model manager: download, pause and resume models; use models kept on another drive, a NAS or a USB stick; move models to a PC without internet as a model pack.
