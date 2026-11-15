@@ -58,15 +58,17 @@ class AboutDialog(QDialog):
         don.setOpenExternalLinks(True)  # the only link that leaves the PC, and only on click
         col.addWidget(don)
         body = QLabel(
-            "Offline speech-to-text for Windows: time-stamped transcripts from recorded audio and video files, "
-            f"processed entirely on this PC.<br><br>Build {build_date()}.<br>{libs}<br><br>"
+            "Offline speech-to-text for Windows and macOS: time-stamped transcripts and AI summaries from recorded "
+            f"audio and video files, processed entirely on this computer.<br><br>Build {build_date()}.<br>{libs}<br><br>"
             "Speech recognition by OpenAI Whisper (MIT) through faster-whisper and CTranslate2 (MIT); "
             "SenseVoiceSmall by FunAudioLLM (FunASR model licence), Parakeet-TDT by NVIDIA (CC-BY-4.0) and "
             "Moonshine by Useful Sensors (MIT) through sherpa-onnx (Apache-2.0) and ONNX Runtime (MIT); voice "
-            f"detection by Silero VAD (MIT). Uses Qt for Python (LGPL-3.0), FFmpeg ({ffmpeg_lic}; unmodified "
-            "ffmpeg.exe), sounddevice (MIT) with PortAudio (MIT), NumPy (BSD-3), OpenCC (Apache-2.0) and "
-            "python-docx (MIT). Licence texts are in THIRD-PARTY-LICENSES.txt. Not affiliated with or endorsed "
-            "by OpenAI, Alibaba, NVIDIA or Useful Sensors.")
+            "detection by Silero VAD (MIT). AI summary by llama.cpp (MIT) with Qwen or Gemma models (Apache-2.0). "
+            "English spelling data from the English Speller Database by Kevin Atkinson (MIT-like licence). "
+            f"Uses Qt for Python (LGPL-3.0), FFmpeg ({ffmpeg_lic}; the unmodified ffmpeg program), sounddevice (MIT) "
+            "with PortAudio (MIT), NumPy (BSD-3), OpenCC (Apache-2.0) and python-docx (MIT). Licence texts are in "
+            "THIRD-PARTY-LICENSES.txt. Not affiliated with or endorsed by OpenAI, Alibaba, Google, NVIDIA or "
+            "Useful Sensors.")
         body.setWordWrap(True)
         body.setTextInteractionFlags(Qt.TextSelectableByMouse)
         col.addWidget(body)

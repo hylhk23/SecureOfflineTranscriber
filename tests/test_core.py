@@ -348,12 +348,197 @@ def test_mac_fallback_folder(monkeypatch):
 
 
 def test_package_readmes_match_version():
+    """Both package READMEs (Windows and macOS) and the help page name this version: from 2.3.1 they are the same."""
     from sot import VERSION
     root = os.path.join(os.path.dirname(__file__), "..", "build")
     for sub in ("package", "package-mac"):
         text = open(os.path.join(root, sub, "README.txt"), encoding="utf-8").read()
-        assert text.startswith(f"Secure Offline Transcriber {VERSION} - portable edition")
-        assert f"WHAT'S NEW IN {VERSION}" in text
+        assert text.startswith(f"Secure Offline Transcriber {VERSION} - portable edition"), sub
+        assert f"WHAT'S NEW IN {VERSION}" in text, sub
+    page = open(os.path.join(os.path.dirname(__file__), "..", "app", "docs", "HELP.html"), encoding="utf-8").read()
+    assert f"<h1>Secure Offline Transcriber {VERSION}</h1>" in page
+
+
+# ---------------------------------------------------------------- 2.3.0: AI summary
+def test_llm_structs_match_llama_cpp_b12000():
+    """Sizes and offsets measured with a C probe compiled against llama.h of release b12000."""
+    import ctypes
+    from sot import llm
+    assert llm.LLAMA_BUILD == "b12000"
+    assert ctypes.sizeof(llm.ModelParams) == 80 and ctypes.sizeof(llm.ContextParams) == 168
+    assert ctypes.sizeof(llm.Batch) == 56 and ctypes.sizeof(llm.ChainParams) == 1
+    off = {"n_gpu_layers": 16, "load_mode": 24, "tensor_split": 40, "progress_callback": 48, "kv_overrides": 64,
+           "vocab_only": 72, "load_mtp": 77}
+    for k, v in off.items():
+        assert getattr(llm.ModelParams, k).offset == v, k
+    off = {"n_threads": 28, "n_threads_batch": 32, "flash_attn_type": 52, "yarn_orig_ctx": 80, "cb_eval": 88,
+           "type_k": 104, "moe_cache_size": 112, "abort_callback": 120, "abort_callback_data": 128, "embeddings": 136,
+           "kv_unified": 141, "samplers": 144, "n_samplers": 152, "ctx_other": 160}
+    for k, v in off.items():
+        assert getattr(llm.ContextParams, k).offset == v, k
+    assert llm.Batch.token.offset == 8 and llm.Batch.logits.offset == 48
+
+
+def test_chat_formats_match_the_models_templates():
+    """The prompts equal what each model's own chat template renders with thinking off."""
+    from sot import summary
+    exp = {"qwen3": "<|im_start|>system\nSYS<|im_end|>\n<|im_start|>user\nUSER<|im_end|>\n<|im_start|>assistant\n"
+                    "<think>\n\n</think>\n\n",
+           "qwen3-instruct": "<|im_start|>system\nSYS<|im_end|>\n<|im_start|>user\nUSER<|im_end|>\n"
+                             "<|im_start|>assistant\n",
+           "qwen3.5": "<|im_start|>system\nSYS<|im_end|>\n<|im_start|>user\nUSER<|im_end|>\n<|im_start|>assistant\n"
+                      "<think>\n\n</think>\n\n",
+           "gemma4": "<|turn>system\nSYS<turn|>\n<|turn>user\nUSER<turn|>\n<|turn>model\n"}
+    for fam, want in exp.items():
+        assert summary.build_prompt(fam, "SYS", "USER") == want
+    from sot import modellist
+    fams = {m["family"] for m in modellist.read(modellist.BUILTIN)["summary_models"]}
+    assert fams <= set(summary.FAMILIES)
+
+
+def test_summary_language_follows_the_transcript():
+    from sot.summary import output_language, script_for_output
+    assert output_language("same", "en") == "en" and output_language("same", "fr") == "fr"
+    assert output_language("same", "yue", "hk") == "zh-hant" and output_language("same", "yue", "cn") == "zh-hans"
+    assert output_language("same", "zh", script_zh="cn") == "zh-hans"
+    assert output_language("same", "zh", script_zh="tw") == "zh-hant"
+    assert output_language("fr", "zh") == "fr"
+    assert script_for_output("zh-hant", "tw") == "tw" and script_for_output("zh-hans") == "cn"
+    assert script_for_output("en") is None
+
+
+def test_summary_clean_up():
+    from sot.summary import clean_output, times_in
+    raw = ("<think>\n\n</think>\n## 決定\n- 預算為八萬蚊（00:00:02）\n- 印五百份 (0:00:30)\n- 印五百份 (0:00:30)\n"
+           "沒有提及。\n\n## Decisions\nNone mentioned.<|im_end|>")
+    out = clean_output(raw)
+    assert "<think>" not in out and "<|im_end|>" not in out
+    assert "[00:00:02]" in out and out.count("印五百份") == 1 and "沒有提及" not in out
+    assert "None mentioned." in out  # a section with no points keeps its 'none'
+    assert times_in(out) == [2, 30]
+
+
+def test_long_transcript_is_split_into_parts():
+    from sot.summary import split_parts
+    lines = [f"[00:00:{i:02d}] word " * 3 for i in range(40)]
+    parts = split_parts(lines, [10] * 40, 95)
+    assert all(len(p) <= 9 for p in parts) and sum(len(p) for p in parts) == 40
+    big = split_parts(["x" * 5000], [1000], 300)
+    assert len(big) > 1
+
+
+class _FakeModel:
+    """Stands in for llm.Model: counts characters as tokens, returns canned text."""
+    def __init__(self, n_ctx):
+        self.n_ctx = n_ctx
+        self.prompts = []
+
+    def count(self, text):
+        return len(text) // 4
+
+    def generate(self, prompt, max_tokens=0, on_prompt=None, on_text=None, **kw):
+        self.prompts.append(prompt)
+        if on_prompt:
+            on_prompt(1, 1)
+        out = "## Summary\nIt went well [00:00:05].\n## Decisions\n- Book the stand [00:01:40]"
+        if on_text:
+            on_text(out)
+        return out, {"prompt_tokens": self.count(prompt), "output_tokens": 20, "prompt_s": 0.1, "gen_s": 0.2,
+                     "stopped": False}
+
+
+def _opts(**kw):
+    o = {"family": "qwen3", "lang": "en", "length": "standard", "sections": ["overview", "decisions"], "times": True,
+         "instructions": "Our company is Northwind.", "temperature": 0.3, "max_tokens": 300, "file": "m.wav",
+         "duration_text": "00:10:00", "transcript_lang_name": "English"}
+    o.update(kw)
+    return o
+
+
+def test_summary_single_pass_and_parts():
+    import threading
+    from sot import summary
+    blocks = [{"start": i * 10, "text": "We discussed the budget and the stand for the fair. " * 3} for i in range(60)]
+    events = []
+    m = _FakeModel(n_ctx=32768)
+    text, st = summary.run(m, blocks, _opts(), lambda *e: events.append(e), threading.Event())
+    assert st["parts"] == 1 and len(m.prompts) == 1 and "[00:01:40]" in text
+    assert "Northwind" in m.prompts[0] and "## Decisions" in m.prompts[0] and "## Key points" not in m.prompts[0]
+    m2 = _FakeModel(n_ctx=2048)
+    text, st = summary.run(m2, blocks, _opts(), lambda *e: events.append(e), threading.Event())
+    assert st["parts"] > 1 and len(m2.prompts) > st["parts"]
+    assert "part 1 of" in m2.prompts[0] and "notes on consecutive parts" in m2.prompts[-1]
+    assert ("stage", "Writing the summary") in events
+
+
+def test_summary_models_in_the_list():
+    from sot import modellist
+    d = modellist.read(modellist.BUILTIN)
+    data, _ = modellist.validate(d)
+    ids = [m["id"] for m in data["summary_models"]]
+    assert ids == ["qwen3-1.7b", "qwen3-4b-instruct-2507", "qwen3.5-2b", "qwen3.5-4b", "gemma-4-e2b", "gemma-4-e4b"]
+    assert all(m["license"] == "Apache-2.0" and m["files"][0]["name"].endswith(".gguf") for m in data["summary_models"])
+    assert data["summary_recommended"] == {"ram_gb": 12, "below": ["qwen3-1.7b"], "at_or_above": ["qwen3-4b-instruct-2507"]}
+
+
+@pytest.mark.parametrize("change, words", [
+    (lambda d: d["summary_models"][0].__setitem__("family", "llama9"), "chat format"),
+    (lambda d: d["summary_models"][0]["files"][0].__setitem__("name", "../x.gguf"), "not allowed"),
+    (lambda d: d["summary_models"][0]["files"][0].__setitem__("name", "model.exe"), "not allowed"),
+    (lambda d: d["summary_models"][1].__setitem__("revision", "main"), "40-character"),
+    (lambda d: d["summary_models"][1].__setitem__("id", "whisper-small"), "used twice"),
+    (lambda d: d["summary_recommended"].__setitem__("below", ["nope"]), "not in summary_models"),
+])
+def test_bad_summary_models_are_refused(change, words):
+    d = _copy.deepcopy(_builtin())
+    change(d)
+    with pytest.raises(modellist.ListError) as ex:
+        modellist.validate(d)
+    assert words in str(ex.value)
+
+
+def test_summary_model_choice_by_memory(monkeypatch, tmp_path):
+    from sot import modelmgr
+    s = Settings(values={"transcription.download_folder": str(tmp_path)})
+    mgr = modelmgr.ModelManager(s)
+    for gb, rec in ((8.0, "qwen3-1.7b"), (16.0, "qwen3-4b-instruct-2507")):
+        monkeypatch.setattr(modelmgr, "ram_gb", lambda gb=gb: (gb, gb / 2))
+        assert mgr.recommended_llm() == [rec] and mgr.llm_order()[0] == rec
+    mgr.scan_llm()
+    assert mgr.llm_choice() is None
+    e = mgr.by_id["gemma-4-e2b"]
+    folder = tmp_path / "gemma-4-e2b"
+    folder.mkdir()
+    with open(folder / e["files"][0]["name"], "wb") as f:  # a sparse file of the listed size counts as installed
+        f.truncate(e["files"][0]["size"])
+    mgr.scan_llm()
+    m = mgr.llm_choice()
+    assert m.key == "gemma-4-e2b" and mgr.llm_file(m).endswith(".gguf")
+    assert all(x.kind != "llm" for x in mgr.scan().values())  # never offered for transcription
+
+
+def test_summary_files_and_view(tmp_path):
+    from sot import exporters
+    from sot.summary import to_plain
+    md = "## Summary\nA **short** meeting.\n\n## Action items\n- Ana: book the stand [00:01:40]\n* Ben: brochure"
+    meta = {"file": "m.wav", "summary_model": "Qwen3-1.7B", "summary_date": "2026-11-05 10:00"}
+    for fmt in ("md", "txt", "docx"):
+        exporters.write_summary(fmt, str(tmp_path / f"s.{fmt}"), md, meta, S())
+        assert (tmp_path / f"s.{fmt}").stat().st_size > 50
+    txt = (tmp_path / "s.txt").read_text(encoding="utf-8")
+    assert "**" not in txt and "- Ben: brochure" in txt and "Qwen3-1.7B" in txt
+    assert to_plain(md).startswith("Summary")
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication([])
+    from sot.ui.summaryview import SummaryView, to_html
+    assert 'href="time:100"' in to_html(md) and "<li>" in to_html(md) and "<b>short</b>" in to_html(md)
+    v = SummaryView()
+    got = []
+    v.time_clicked.connect(got.append)
+    from PySide6.QtCore import QUrl
+    v._anchor(QUrl("time:100"))
+    assert got == [100.0]
 
 
 # ---------------------------------------------------------------- issue #1: voice detection in 30-s windows
@@ -569,3 +754,119 @@ def test_vad_result_reused_for_the_same_audio(monkeypatch):
     assert len(calls) == n                                        # second call: no new detection
     audioproc.windowed_speech_timestamps(a, vad.VadOptions(threshold=0.4))
     assert len(calls) > n                                         # other options: detected again
+
+
+# ---------------------------------------------------------------- Options: offline warning, AI Summary model list
+def _contrast(fg, bg, m=None):
+    def lin(c):
+        c = np.array(c, float) / 255
+        return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    hexc = lambda h: [int(h[i:i + 2], 16) for i in (1, 3, 5)]
+    a, b = lin(hexc(fg)), lin(hexc(bg))
+    if m is not None:  # colour-vision simulation (Machado et al. 2009, severity 1.0) in linear RGB
+        a, b = np.clip(m @ a, 0, 1), np.clip(m @ b, 0, 1)
+    la, lb = (float(x @ [0.2126, 0.7152, 0.0722]) for x in (a, b))
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+def test_warning_colours_readable_in_both_themes_and_with_colour_weakness():
+    """Red warnings (2.3.1) and amber cautions. Regression (2.3.1): 'Update available' and the hotword counters used
+    #c07000, 3.3:1 on the light window and 3.7:1 on the dark table; it was chosen before contrast was tested, and no
+    test looked at colours outside the new warning."""
+    from sot.ui.options import CAUTION_DARK, CAUTION_LIGHT, WARN_DARK, WARN_LIGHT
+    protan = np.array([[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216], [-0.003882, -0.048116, 1.051998]])
+    deutan = np.array([[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413], [-0.011820, 0.042940, 0.968881]])
+    ui = os.path.join(ROOT, "app", "sot", "ui")
+    for fn in os.listdir(ui):
+        if fn.endswith(".py"):
+            assert "#c07000" not in open(os.path.join(ui, fn), encoding="utf-8").read(), fn
+    for fg, bgs in ((WARN_LIGHT, ("#ffffff", "#f0f0f0")), (WARN_DARK, ("#1e1e1e", "#2d2d2d", "#353535")),
+                    (CAUTION_LIGHT, ("#ffffff", "#f0f0f0")), (CAUTION_DARK, ("#1e1e1e", "#2d2d2d", "#353535"))):
+        for bg in bgs:
+            for m in (None, protan, deutan):
+                assert _contrast(fg, bg, m) >= 4.5, (fg, bg)
+
+
+def _options(tmp_path, monkeypatch, offline):
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
+    from sot import modellist
+    from sot.modelmgr import ModelManager
+    from sot.ui import options as O
+    app = QApplication.instance() or QApplication([])
+    monkeypatch.setattr(modellist, "override_path", lambda: str(tmp_path / "models.json"))
+    msgs = []
+    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: msgs.append(a[2]) or QMessageBox.Ok))
+    monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **k: msgs.append("WARN " + a[2]) or QMessageBox.Ok))
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.Yes))
+    s = Settings(path=str(tmp_path / "settings.json"))
+    s.set("transcription.download_folder", str(tmp_path / "dl"))
+    s.set("advanced.offline", offline)
+    s.save()
+    mgr = ModelManager(s)
+    mgr.scan()
+    dlg = O.OptionsDialog(None, s, mgr, 1)
+    return app, dlg, s, msgs, QFileDialog
+
+
+def _dl_buttons(tab, col):
+    out = []
+    for r in range(tab.table.rowCount()):
+        w = tab.table.cellWidget(r, col)
+        out += [b for b in w.findChildren(type(tab.rec_btn)) if b.text() in ("Download", "Resume", "Update")] if w else []
+    return out
+
+
+def test_offline_warning_on_both_model_tabs_and_turn_off(tmp_path, monkeypatch):
+    from sot.ui.options import WARN_DARK, WARN_LIGHT
+    app, dlg, s, msgs, _ = _options(tmp_path, monkeypatch, offline=True)
+    for tab, col in ((dlg.trans, 6), (dlg.summary, 4)):
+        note = tab.offline_note
+        assert not note.isHidden()
+        html = note.text.text()
+        assert "Download is disabled because Offline Mode is on" in html and "font-weight:bold" in html
+        assert WARN_LIGHT in html or WARN_DARK in html
+        assert "Turn Offline Mode off" in html and note.button.text() == "Turn Offline Mode off"
+        assert not tab.rec_btn.isEnabled() and not any(b.isEnabled() for b in _dl_buttons(tab, col))
+    dlg.summary.offline_note.button.click()  # acts at once, like the main window's Options > Offline Mode tick
+    assert s.get("advanced.offline") is False and Settings(path=s.path).get("advanced.offline") is False
+    assert dlg.work.get("advanced.offline") is False and dlg.advanced.value("advanced.offline") is False
+    for tab, col in ((dlg.trans, 6), (dlg.summary, 4)):
+        assert tab.offline_note.isHidden() and tab.rec_btn.isEnabled()
+        assert _dl_buttons(tab, col) and all(b.isEnabled() for b in _dl_buttons(tab, col))
+    dlg.advanced.put("advanced.offline", True)  # the Advanced tab tick takes effect on Apply
+    assert dlg.apply()
+    assert not dlg.trans.offline_note.isHidden() and not dlg.summary.offline_note.isHidden()
+    assert app is not None
+
+
+def test_ai_summary_tab_imports_model_list(tmp_path, monkeypatch):
+    from sot import modellist
+    app, dlg, s, msgs, QFileDialog = _options(tmp_path, monkeypatch, offline=True)
+    assert "summary models" in dlg.summary.list_label.text() and not dlg.summary.b_builtin.isEnabled()
+    data = modellist.read(modellist.BUILTIN)
+    extra = json.loads(json.dumps(data["summary_models"][0]))
+    extra["id"], extra["name"] = "qwen3-1.7b-test", "Qwen3-1.7B test copy"
+    data["summary_models"].append(extra)
+    data["list_version"] = "2099.1.1"
+    f = tmp_path / "new list.json"
+    f.write_text(json.dumps(data), encoding="utf-8")
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(f), "")))
+    btn = [b for b in dlg.summary.findChildren(type(dlg.summary.rec_btn)) if b.text().startswith("Import model list")]
+    assert len(btn) == 1
+    btn[0].click()  # works while offline: no network is needed
+    assert "Qwen3-1.7B test copy" in msgs[-1] and "AI summary models" in msgs[-1]
+    names = [dlg.summary.table.item(r, 0).text() for r in range(dlg.summary.table.rowCount())]
+    assert "Qwen3-1.7B test copy" in names
+    assert "2099.1.1" in dlg.summary.list_label.text() and "2099.1.1" in dlg.trans.list_label.text()
+    assert dlg.summary.b_builtin.isEnabled() and dlg.trans.b_builtin.isEnabled()
+    # a summary model of an unknown chat format is refused and the list in use stays
+    data["summary_models"][-1]["family"] = "newformat"
+    data["list_version"] = "2099.1.2"
+    f.write_text(json.dumps(data), encoding="utf-8")
+    btn[0].click()
+    assert msgs[-1].startswith("WARN ") and "chat format" in msgs[-1] and "2099.1.1" in dlg.summary.list_label.text()
+    dlg.summary.b_builtin.click()
+    assert "built into the program" in dlg.summary.list_label.text() and not dlg.summary.b_builtin.isEnabled()
+    assert "Qwen3-1.7B test copy" not in [dlg.summary.table.item(r, 0).text() for r in range(dlg.summary.table.rowCount())]
+    assert app is not None

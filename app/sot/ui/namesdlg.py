@@ -187,7 +187,8 @@ class NamesDialog(QDialog):
                f"{HOTWORD_LIMIT} hotword words")
         if warn:
             msg += " - words after about 100 are not used, so keep the most important names first"
-        self.count.setText(f"<span style='color:{'#c07000' if warn else 'palette(text)'}'>{msg}.</span>")
+        from .options import caution_colour
+        self.count.setText(f"<span style='color:{caution_colour(self) if warn else 'palette(text)'}'>{msg}.</span>")
         self.ok_btn.setEnabled(bool(sel))
 
     def accept_names(self):

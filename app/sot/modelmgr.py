@@ -13,7 +13,8 @@ from . import paths
 from .engines import detect_type, kind_languages
 
 MANIFEST = ".sot-model.json"  # written into each downloaded model folder: which list entry and revision it holds
-KIND_LABEL = {"whisper": "Whisper", "sensevoice": "SenseVoiceSmall", "parakeet": "Parakeet", "moonshine": "Moonshine"}
+KIND_LABEL = {"whisper": "Whisper", "sensevoice": "SenseVoiceSmall", "parakeet": "Parakeet", "moonshine": "Moonshine",
+              "llm": "Language model"}
 LANG_NAMES = {"en": "English", "fr": "French", "yue": "Cantonese", "zh": "Mandarin", "auto": "Auto-detect"}
 
 
@@ -126,7 +127,9 @@ class ModelManager:
         self.list_info = load()
         self.listdata = self.list_info["data"]
         self.catalog = self.listdata["models"]
-        self.by_id = {e["id"]: e for e in self.catalog}
+        self.llm_catalog = self.listdata.get("summary_models", [])  # AI summary (2.3.0); never used to transcribe
+        self.by_id = {e["id"]: e for e in self.catalog + self.llm_catalog}
+        self.llm_models = {}
 
     def automatic_order(self, language):
         """The model order Automatic tries: your own order from Options, else the model list's."""
@@ -166,7 +169,11 @@ class ModelManager:
             return "Installed", entry["size"]
         if partial:
             return "Paused", done
-        if detect_type(folder)[0] == entry["kind"]:
+        if entry["kind"] == "llm":
+            if any(n.lower().endswith(".gguf") and os.path.isfile(os.path.join(folder, n)) for n in os.listdir(folder)) \
+                    and man and man.get("revision") != entry["revision"]:
+                return "Update available", done  # the file of an earlier revision: still usable
+        elif detect_type(folder)[0] == entry["kind"]:
             return "Update available", done  # the files of an earlier revision: still usable
         if other or done:
             return "Damaged", done
@@ -259,6 +266,62 @@ class ModelManager:
 
     def installed(self):
         return [m for m in self.models.values() if m.installed]
+
+    # ---------------------------------------------------------------- AI summary models (2.3.0)
+    def scan_llm(self):
+        models = {}
+        for e in self.llm_catalog:
+            status, done = self._status_of(e)
+            st = self.downloads.get(e["id"])
+            if st and st[0].is_alive():
+                status = "Downloading"
+            m = ModelInfo(e["id"], e["name"], "llm", self.folder_for(e), e["languages"], "download", status,
+                          e["size"], e)
+            m.progress = done / e["size"] if e["size"] else 0
+            models[m.key] = m
+        self.llm_models = models
+        return models
+
+    def llm_installed(self):
+        return [m for m in self.llm_models.values() if m.installed]
+
+    def llm_file(self, m):
+        """Path of the model's GGUF file (the listed name, else the only .gguf in its folder)."""
+        if m.entry:
+            p = os.path.join(m.folder, m.entry["files"][0]["name"])
+            if os.path.isfile(p):
+                return p
+        try:
+            ggufs = [n for n in os.listdir(m.folder) if n.lower().endswith(".gguf")]
+        except OSError:
+            ggufs = []
+        return os.path.join(m.folder, ggufs[0]) if len(ggufs) == 1 else None
+
+    def llm_order(self):
+        """Automatic choice for the summary: by this PC's memory, from the model list."""
+        auto = self.listdata.get("summary_automatic") or {}
+        rec = self.listdata.get("summary_recommended") or {}
+        total, _ = ram_gb()
+        key = "at_or_above" if total >= float(rec.get("ram_gb", 12)) else "below"
+        order = list(auto.get(key) or [])
+        return order + [e["id"] for e in self.llm_catalog if e["id"] not in order]
+
+    def llm_choice(self, wanted="auto"):
+        """The summary model to use: the chosen one when installed, else the first installed in Automatic order."""
+        if wanted and wanted != "auto":
+            m = self.llm_models.get(wanted)
+            return m if m and m.installed else None
+        for cid in self.llm_order():
+            m = self.llm_models.get(cid)
+            if m and m.installed:
+                return m
+        return None
+
+    def recommended_llm(self):
+        rec = self.listdata.get("summary_recommended") or {}
+        total, _ = ram_gb()
+        ids = rec.get("at_or_above" if total >= float(rec.get("ram_gb", 12)) else "below") or []
+        return [i for i in ids if i in self.by_id]
 
     # ---------------------------------------------------------------- choosing a model
     def find(self, key):
@@ -404,6 +467,8 @@ class ModelManager:
             raise RuntimeError("Models in other locations are never deleted. Remove the location instead.")
         if os.path.isdir(m.folder):
             shutil.rmtree(m.folder)
+        if m.kind == "llm":
+            self.scan_llm()
 
     # ---------------------------------------------------------------- locations and folders
     def add_location(self, folder):

@@ -53,6 +53,7 @@ DEFAULTS = {
     "transcription.threads": 0,           # 0 = all cores
     "transcription.script_yue": "hk",     # hk / tw / cn
     "transcription.script_zh": "cn",
+    "transcription.spelling_en": "auto",  # auto (country or region) / us / gb / ca / au / hk / off (as written)
     "transcription.download_folder": "models",
     "transcription.locations": [],
     "transcription.location_cache": {},
@@ -110,6 +111,23 @@ DEFAULTS = {
     "advanced.offline": False,             # turned on automatically once a model is installed
     "advanced.offline_auto_done": False,
     "advanced.proxy": "system",
+    # AI summary (version 2.3.0): off until the user turns it on
+    "summary.enabled": False,
+    "summary.auto": True,                  # write the summary as soon as a transcript is complete
+    "summary.model": "auto",               # auto or a summary model id
+    "summary.language": "same",            # same / en / fr / zh-hant / zh-hans
+    "summary.length": "standard",          # brief / standard / detailed
+    "summary.sections": ["overview", "key_points", "decisions", "actions", "questions"],
+    "summary.times": True,                 # [hh:mm:ss] after each point, clickable
+    "summary.instructions": "",
+    "summary.save_file": True,             # save {name}_summary.md with the auto-saved transcript
+    "summary.temperature": 0.3,
+    "summary.context": 0,                  # tokens; 0 = Automatic (8192 below 12 GB of memory, else 16384)
+    "summary.max_tokens": 0,               # 0 = follow Length
+    "summary.threads": 0,                  # 0 = all cores
+    "summary.keep_loaded": False,
+    "summary.background": False,
+    "summary.gpu": True,                   # Mac: Metal graphics chip when the model fits; Windows: always the CPU
 }
 
 GROUPS = {

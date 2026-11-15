@@ -163,11 +163,12 @@ def main():
 def smoke_test(app, win):
     """Used by the build (Qt trimming) and by Help > Environment checks: every library must import."""
     from PySide6.QtCore import QTimer
-    errors = []
+    errors, notes = [], []
     from sot.avstub import install
     install()
     for mod in ("numpy", "faster_whisper", "ctranslate2", "sherpa_onnx", "onnxruntime", "docx", "opencc", "pypdf",
-                "sot.engines", "sot.exporters", "sot.names", "sot.ui.options", "sot.ui.dialogs", "sot.ui.namesdlg"):
+                "sot.engines", "sot.exporters", "sot.names", "sot.ui.options", "sot.ui.dialogs", "sot.ui.namesdlg",
+                "sot.summary", "sot.summaryworker", "sot.ui.summaryview"):
         try:
             __import__(mod)
         except Exception as ex:
@@ -179,6 +180,21 @@ def smoke_test(app, win):
     from sot import media
     if not media.find_ffmpeg():
         errors.append("ffmpeg.exe not found")
+    from sot import llm  # AI summary engine (2.3.0): the libraries load and find a CPU backend
+    ok, why = llm.available()
+    if ok:
+        try:
+            rt = llm.Runtime.get()
+            if rt.devices() < 1:
+                errors.append("llama.cpp: no CPU backend found")
+            elif sys.platform == "darwin":  # the Mac's graphics chip for the AI summary (not required)
+                g = rt.gpu()
+                notes.append(f"AI summary graphics chip: {g[0]} (Metal), {g[2] / 1e9:.1f} GB usable" if g else
+                             "AI summary graphics chip: none found; the processor is used")
+        except Exception as ex:
+            errors.append(f"llama.cpp: {ex}")
+    elif os.path.isdir(os.path.join(os.path.dirname(HERE), "python")):  # the package must have them
+        errors.append(why)
     from sot.ui.options import OptionsDialog
     dlg = OptionsDialog(win, win.settings, win.manager)
     dlg.show()
@@ -186,7 +202,7 @@ def smoke_test(app, win):
     app.exec()
     dlg.close()
     win.worker.stop()
-    out = "SMOKE TEST " + ("PASSED" if not errors else "FAILED:\n  " + "\n  ".join(errors))
+    out = "\n".join(notes + ["SMOKE TEST " + ("PASSED" if not errors else "FAILED:\n  " + "\n  ".join(errors))])
     print(out, file=sys.__stdout__ or sys.stdout)
     import logging
     logging.getLogger("main").info(out)

@@ -1,9 +1,9 @@
-SECURE OFFLINE TRANSCRIBER 2.1 - THIRD-PARTY LICENCES
-=====================================================
+SECURE OFFLINE TRANSCRIBER - THIRD-PARTY LICENCES
+=================================================
 
 The Software uses the components below. Each is the property of its owners and is
 licensed under the terms that follow. Secure Offline Transcriber is not affiliated with or
-endorsed by OpenAI, Alibaba, NVIDIA, Useful Sensors or any other owner named here.
+endorsed by OpenAI, Alibaba, NVIDIA, Google, Useful Sensors or any other owner named here.
 
 PROGRAMS
 --------
@@ -14,6 +14,23 @@ PortAudio (inside sounddevice) - MIT licence.
 Qt 6 (inside PySide6) - GNU LGPL version 3. Qt's libraries are separate DLL files in
   python\Lib\site-packages\PySide6 and may be replaced by the user with compatible builds;
   Qt source code: https://download.qt.io/official_releases/qt/
+
+LIBRARIES FOR THE AI SUMMARY (llamacpp FOLDER)
+----------------------------------------------
+llama.cpp and ggml, release b12000, by the ggml authors - MIT licence
+  (llamacpp\LICENSE.txt). The official Windows CPU build, unmodified; libraries only.
+  Source: https://github.com/ggml-org/llama.cpp (see llamacpp\SOURCE.txt).
+LLVM OpenMP runtime (libomp.dll) - Apache License 2.0 with LLVM Exceptions
+  (llamacpp\LICENSE-LLVM-OpenMP.txt).
+Microsoft Visual C++ runtime (llamacpp\msvcp140.dll) - redistributable under the
+  Microsoft Visual Studio licence terms, as shipped with PySide6.
+
+LANGUAGE MODELS FOR THE AI SUMMARY (NOT INCLUDED; DOWNLOADED BY THE USER)
+------------------------------------------------------------------------
+Qwen3-1.7B, Qwen3-4B-Instruct-2507, Qwen3.5-2B and Qwen3.5-4B by the Qwen team,
+  Alibaba Cloud - Apache License 2.0. GGUF files: Qwen3-1.7B as published by Qwen;
+  the others as converted by Unsloth (https://huggingface.co/unsloth).
+Gemma 4 E2B and E4B by Google - Apache License 2.0. GGUF files as converted by Unsloth.
 
 SPEECH MODELS (NOT INCLUDED; DOWNLOADED BY THE USER FROM HUGGING FACE)
 --------------------------------------------------------------------
@@ -29,6 +46,101 @@ Parakeet-TDT-0.6B-v3 by NVIDIA, int8 ONNX conversion by the k2-fsa sherpa-onnx p
   converted to ONNX int8 (changes made).
 Moonshine tiny and base by Useful Sensors, ONNX conversion by k2-fsa - MIT licence.
 Silero VAD (included inside faster-whisper) - MIT licence. Copyright (c) Silero Team.
+
+WORD DATA FOR ENGLISH SPELLING (app\data\spelling.json)
+------------------------------------------------------------
+The spelling tables were made from the English Speller Database (ESDB, previously
+known as SCOWL and VarCon), https://github.com/en-wl/wordlist, commit 1e5b7d3a
+(24 June 2026), by the script build/tools/make-spelling-data.py in the source code.
+The notices of the database follow verbatim.
+
+Copyright 2000-2026 by Kevin Atkinson
+
+Permission to use, copy, modify, distribute, and sell any part of the English
+Speller Database (ESDB, previously known as SCOWLv2), or word lists
+created from it, is hereby granted without fee, provided that the above
+copyright notice appears in all copies and that both the above copyright
+notice and this notice appear in supporting documentation.  Kevin Atkinson
+makes no representations about the suitability of this database for any
+purpose.  It is provided "as is" without express or implied warranty.
+
+ESDB is derived from many sources, most of which are in the Public Domain.
+Data from the Corpus of Contemporary American English (COCA) was also used.
+
+All data from COCA comes from 3-gram data that is not freely available;
+however, the usage is within the rights given by the NDA that was signed when
+purchasing the data.  More information on COCA is available at
+https://www.english-corpora.org/coca/.
+
+The primary source of words for ESDB comes from 12dicts and ENABLE2K.  Both
+are in the Public Domain, but Alan Beale <biljir@pobox.com> deserves special
+credit as he is the author of 12dicts and a major contributor to ENABLE2K.  In
+addition, he gave me an incredible amount of feedback and created a number of
+special lists in order to help improve the overall quality of ESDB.
+
+Australian English data:
+
+The initial information for Australian English comes from Benjamin Titze:
+
+  Copyright 2016 by Benjamin Titze
+
+  Permission to use, copy, modify, distribute and sell this array, the
+  associated software, and its documentation for any purpose is hereby
+  granted without fee, provided that the above copyright notice appears
+  in all copies and that both that copyright notice and this permission
+  notice appear in supporting documentation. Benjamin Titze makes no
+  representations about the suitability of this array for any
+  purpose. It is provided "as is" without express or implied warranty.
+
+UK Advanced Cryptics Dictionary:
+
+Some words used come from the UK Advanced Cryptics Dictionary:
+
+  Copyright (c) J Ross Beresford 1993-1999. All Rights Reserved.
+
+  The following restriction is placed on the use of this publication:
+  if The UK Advanced Cryptics Dictionary is used in a software package
+  or redistributed in any form, the copyright notice must be
+  prominently displayed and the text of this document must be included
+  verbatim.
+
+  There are no other restrictions: I would like to see the list
+  distributed as widely as possible.
+
+WordNet:
+
+WordNet was used to help with the initial POS assignment:
+
+  This software and database is being provided to you, the LICENSEE,
+  by Princeton University under the following license.  By obtaining,
+  using and/or copying this software and database, you agree that you
+  have read, understood, and will comply with these terms and
+  conditions.:
+
+  Permission to use, copy, modify and distribute this software and
+  database and its documentation for any purpose and without fee or
+  royalty is hereby granted, provided that you agree to comply with
+  the following copyright notice and statements, including the
+  disclaimer, and that the same appear on ALL copies of the software,
+  database and documentation, including modifications that you make
+  for internal use or for distribution.
+
+  WordNet 1.6 Copyright 1997 by Princeton University.  All rights
+  reserved.
+
+  THIS SOFTWARE AND DATABASE IS PROVIDED "AS IS" AND PRINCETON
+  UNIVERSITY MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+  IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, PRINCETON
+  UNIVERSITY MAKES NO REPRESENTATIONS OR WARRANTIES OF MERCHANT-
+  ABILITY OR FITNESS FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF THE
+  LICENSED SOFTWARE, DATABASE OR DOCUMENTATION WILL NOT INFRINGE ANY
+  THIRD PARTY PATENTS, COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS.
+
+  The name of Princeton University or Princeton may not be used in
+  advertising or publicity pertaining to distribution of the software
+  and/or database.  Title to copyright in this software, database and
+  any associated documentation shall at all times remain with
+  Princeton University and LICENSEE agrees to preserve same.
 
 PYTHON LIBRARIES
 ----------------

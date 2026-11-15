@@ -32,6 +32,14 @@ FFMPEG_SHA256 = "60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047b
 
 ALLOWED_EXE = {"python/python.exe", "python/pythonw.exe", "ffmpeg/ffmpeg.exe"}
 
+# AI summary engine (2.3.0): the official llama.cpp Windows CPU build, libraries only (no .exe, no RPC/network backend)
+LLAMA_BUILD = "b12000"
+LLAMA_URL = f"https://github.com/ggml-org/llama.cpp/releases/download/{LLAMA_BUILD}/llama-{LLAMA_BUILD}-bin-win-cpu-x64.zip"
+LLAMA_SHA256 = "6fb512a768e6b93c9ced1d01e1f84a3a96bc16b5f0a5948e38fb320d6e067220"
+LLAMA_LICENSE_URL = f"https://raw.githubusercontent.com/ggml-org/llama.cpp/{LLAMA_BUILD}/LICENSE"
+LLAMA_LICENSE_SHA256 = "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d"
+LLAMA_KEEP = re.compile(r"^(llama|ggml|ggml-base|ggml-cpu-[a-z0-9]+|libomp)\.dll$|^LICENSE-LLVM-OpenMP$", re.I)
+
 # Qt parts a Widgets app never loads (removed only when the smoke test passes on Windows; see README)
 QT_TRIM = [r"Qt6Quick.*\.dll", r"Qt6Qml.*\.dll", r"Qt6Designer.*\.dll", r"Qt6Pdf.*\.dll", r"Qt6ShaderTools\.dll",
            r"Qt6LabsQml.*\.dll", r"Qt6Help\.dll", r"Qt6UiTools\.dll", r"opengl32sw\.dll", r"Qt6VirtualKeyboard.*\.dll",
@@ -191,6 +199,43 @@ def main():
                 f"is available from https://ffmpeg.org/releases/ffmpeg-{FFMPEG_VERSION}.tar.xz and from the build's\n"
                 "page https://www.gyan.dev/ffmpeg/builds/ ; on request we provide it for three years.\n"
                 "Secure Offline Transcriber runs ffmpeg.exe as a separate program and does not link to it.\n")
+
+    log("5b. llama.cpp (AI summary engine, libraries only)")
+    from sot.llm import LLAMA_BUILD as APP_LLAMA_BUILD
+    if APP_LLAMA_BUILD != LLAMA_BUILD:
+        sys.exit(f"sot/llm.py is written for llama.cpp {APP_LLAMA_BUILD}, the build pins {LLAMA_BUILD}")
+    lz = download(LLAMA_URL, os.path.join(a.cache, os.path.basename(LLAMA_URL)), LLAMA_SHA256)
+    lic = download(LLAMA_LICENSE_URL, os.path.join(a.cache, f"llama.cpp-{LLAMA_BUILD}-LICENSE"), LLAMA_LICENSE_SHA256)
+    lc = os.path.join(stage, "llamacpp")
+    os.makedirs(lc)
+    kept = []
+    with zipfile.ZipFile(lz) as z:
+        for n in z.namelist():
+            base = n.rsplit("/", 1)[-1]
+            if LLAMA_KEEP.match(base):
+                target = "LICENSE-LLVM-OpenMP.txt" if base == "LICENSE-LLVM-OpenMP" else base
+                with z.open(n) as src, open(os.path.join(lc, target), "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+                kept.append(target)
+    for need in ("llama.dll", "ggml.dll", "ggml-base.dll", "libomp.dll", "ggml-cpu-x64.dll"):
+        if need not in kept:
+            sys.exit(f"llama.cpp zip has no {need}")
+    shutil.copy(lic, os.path.join(lc, "LICENSE.txt"))
+    # the C++ runtime llama.cpp needs (Microsoft's redistributable file, the same one PySide6's shiboken6 ships)
+    shutil.copy(os.path.join(sp, "shiboken6", "msvcp140.dll"), os.path.join(lc, "msvcp140.dll"))
+    with open(os.path.join(lc, "SOURCE.txt"), "w", newline="\r\n") as f:
+        f.write(f"The .dll files in this folder (except msvcp140.dll) are llama.cpp release {LLAMA_BUILD}, the official\n"
+                f"Windows CPU build, distributed unmodified:\n  {LLAMA_URL}\n  SHA-256 of that zip: {LLAMA_SHA256}\n"
+                "Only the libraries the AI summary needs are included: no llama.cpp program (.exe), and not the RPC\n"
+                "backend (ggml-rpc.dll), which is the part that can use the network.\n"
+                f"Source code: https://github.com/ggml-org/llama.cpp/tree/{LLAMA_BUILD}\n"
+                "llama.cpp and ggml: MIT licence (LICENSE.txt). libomp.dll: LLVM OpenMP runtime, Apache License 2.0 with\n"
+                "LLVM Exceptions (LICENSE-LLVM-OpenMP.txt). msvcp140.dll: Microsoft Visual C++ runtime, redistributable.\n"
+                "Secure Offline Transcriber loads these libraries with Python's ctypes (app\\sot\\llm.py).\n\nFiles:\n")
+        for fn in sorted(os.listdir(lc)):
+            if fn != "SOURCE.txt":
+                f.write(f"  {sha256_file(os.path.join(lc, fn))}  {fn}\n")
+    log(f"   {len([k for k in kept if k.endswith('.dll')])} libraries from llama.cpp {LLAMA_BUILD}")
 
     log("6. Launchers and documents")
     for fn in ("run.bat", "run-debug.bat", "create-shortcut.bat", "smoke-test.bat", "verify-files.bat", "README.txt",

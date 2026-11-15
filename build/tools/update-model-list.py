@@ -126,12 +126,12 @@ def main():
             print("note:", w)
         return 0
 
-    ids = {m.get("id") for m in data.get("models", [])}
+    ids = {m.get("id") for m in data.get("models", []) + data.get("summary_models", [])}
     for r in a.refresh:
         if r not in ids:
             raise SystemExit(f"--refresh {r}: no model with that id in the list.")
     changes = []
-    for m in data["models"]:
+    for m in data["models"] + data.get("summary_models", []):  # speech models, then AI summary models (2.3.0)
         print(f"  {m['id']:<30} ", end="", flush=True)
         note = fill(m, a.refresh_all or m["id"] in a.refresh)
         print(note or "unchanged")

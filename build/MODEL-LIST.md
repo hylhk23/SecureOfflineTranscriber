@@ -41,7 +41,10 @@ When a new program version brings a newer built-in list, it replaces an older im
 | `min_app_version` | Oldest program version that may use this list, e.g. `"2.1.1"` |
 | `recommended` | `ram_gb` (12), `below` and `at_or_above`: the model ids of the recommended set for PCs with less / more memory; optional `cantonese_mandarin`: models added when the user transcribes Cantonese or Mandarin (from version 2.1.4; older versions ignore it) |
 | `automatic` | For `en`, `fr`, `yue`, `zh`: model ids in the order Automatic tries them (the first installed one is used) |
-| `models` | The list of models (below) |
+| `models` | The list of speech models (below) |
+| `summary_models` | From version 2.3.0: language models for the AI summary (see "Summary models" below); older versions ignore them |
+| `summary_recommended` | `ram_gb` (12), `below` and `at_or_above`: the summary model recommended for PCs with less / more memory |
+| `summary_automatic` | `below` and `at_or_above`: the order Automatic tries summary models in |
 
 ## Model fields
 
@@ -63,6 +66,21 @@ Files each kind needs (the list is refused otherwise):
 - **sensevoice**: `model.int8.onnx` (or `model.onnx`), `tokens.txt`
 - **parakeet**: `encoder…onnx`, `decoder…onnx`, `joiner…onnx`, `tokens.txt`
 - **moonshine**: `preprocess.onnx`, `encode…onnx`, `uncached_decode…onnx`, `cached_decode…onnx`, `tokens.txt`
+
+## Summary models (version 2.3.0)
+
+Same fields as speech models, plus:
+
+| Field | Example | Rules |
+|---|---|---|
+| `kind` | `"llm"` | Always `llm` |
+| `family` | `"qwen3"` | The chat format: `qwen3` (hybrid thinking, switched off), `qwen3-instruct`, `qwen3.5`, `gemma4`. A model with another format needs a new program version |
+| `files` | `["Qwen3-1.7B-Q8_0.gguf"]` | Exactly one `.gguf` file |
+| `context_max` | `40960` | The model's own context length; the context the user picks is capped to it |
+| `upstream` | `"Qwen/Qwen3-1.7B"` | The original model, for the licence and model card |
+
+The program runs summary models with llama.cpp (the version pinned in `build/build.py`); a GGUF file must be one that
+version can load. Test a new model with a real summary before publishing a list.
 
 ## Safety
 

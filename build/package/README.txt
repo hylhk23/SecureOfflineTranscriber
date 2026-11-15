@@ -1,29 +1,52 @@
-Secure Offline Transcriber 2.2.1 - portable edition for Windows 10 and 11 (64-bit)
+Secure Offline Transcriber 2.3.1 - portable edition for Windows 10 and 11 (64-bit)
 ================================================================================
 
 Offline speech-to-text: time-stamped transcripts from recorded audio and video files
 (WAV, MP3, M4A, MP4, MKV and more), processed entirely on this PC. English, French,
 Cantonese and Mandarin. No installation, no account, no internet needed after a model
-is downloaded.
+is downloaded. Optional AI summary of each transcript, also written on this PC.
 
-WHAT'S NEW IN 2.2.1
+WHAT'S NEW IN 2.3.1
 -------------------
-- Fixed: on some long recordings voice detection reported most of the speech as silence,
-  so large parts of the transcript were missing (GitHub issue #1). It now listens in
-  30-second windows. If less than 40% of a recording is recognised as speech, a warning
-  says so, and Raw output lists the stretches of a minute or more without text.
-- New safety net, on by default: Options > Advanced > Voice detection > "Check stretches
-  without speech". Where no speech was detected for 20 seconds or more, the model still
-  listens and keeps only text it is sure of. Silent parts are skipped.
-- New for Whisper models: "Voice detection off (Whisper only)" in the same place. Whisper
-  then reads the whole recording, silence included: nothing is skipped, but it is slower
-  and may invent text in silence, music or noise.
+- English spelling for your country: American (color, organize), British (colour,
+  organise), Canadian (colour, organize), Australian or Hong Kong (both colour, organise).
+  Options > Transcription > English spelling. Automatic, the default, follows the country
+  or region set in Windows. The transcript, its exports and the AI summary follow it;
+  names and your vocabulary terms are kept. Edit > Change English Spelling changes a
+  transcript that is already open. Help (F1) has a new section, English spelling.
+- Options > AI Summary has Import model list and Use built-in list, as on the
+  Transcription tab: one model list file holds both kinds of model.
+- With Offline Mode on, the Transcription and AI Summary tabs say in red why downloading
+  is not possible and offer a "Turn Offline Mode off" button.
+- Fixed: after Import model list, the AI summary models were missing from Options >
+  AI Summary until the program was started again.
+- Fixed: the amber text for "Update available" and for a hotword count near its limit was
+  hard to read; it is now clear in light and dark themes.
+- Windows and macOS now have the same version number and the same features.
 
-WHAT'S NEW IN 2.2.0
+WHAT'S NEW IN 2.3.0
 -------------------
-- The program now also runs on Macs with Apple silicon (M1 or newer, macOS 14 or
-  later): a separate portable download with the same features, on the same release page.
-- The help (F1) has a new section, On a Mac.
+- AI summary (optional, off until you turn it on in Options > AI Summary): when a
+  transcript is complete, a small language model on this PC writes a summary, key points,
+  decisions, action items and open questions, each with the time it was discussed. It
+  appears in an AI summary tab next to Transcript and Raw output; you can keep reading and
+  playing the transcript while it is written.
+- Six summary models to download in Options > AI Summary: Qwen3-1.7B, Qwen3-4B-Instruct-2507,
+  Qwen3.5-2B, Qwen3.5-4B, Gemma 4 E2B and Gemma 4 E4B (1.8 to 5.0 GB; Apache 2.0 licence).
+- The summary engine is llama.cpp (folder llamacpp): libraries only, no new program.
+- Help (F1) has a new chapter, AI summary. Check summaries against the transcript: small
+  language models can get details wrong. Click a time in the summary to hear that part.
+- Fixed (also in 2.2.1): on some long recordings voice detection reported most of the
+  speech as silence, so large parts of the transcript were missing (GitHub issue #1). It
+  now listens in 30-second windows. If less than 40% of a recording is recognised as
+  speech, a warning says so, and Raw output lists the stretches of a minute or more
+  without text.
+- New safety net (also in 2.2.1), on by default: Options > Advanced > Voice detection >
+  "Check stretches without speech". Where no speech was detected for 20 seconds or more,
+  the model still listens and keeps only text it is sure of. Silent parts are skipped.
+- New for Whisper models (also in 2.2.1): "Voice detection off (Whisper only)" in the same
+  place. Whisper then reads the whole recording, silence included: nothing is skipped, but
+  it is slower and may invent text in silence, music or noise.
 
 START
 -----
@@ -66,7 +89,8 @@ verify-files.bat      check every file against SHA256SUMS.txt after unzipping
 app\                  the program (Python source code, readable) and docs\HELP.html
 python\               Python 3.13 embeddable package from python.org
 ffmpeg\ffmpeg.exe     reads audio and video files (unmodified FFmpeg build)
-models\               downloaded speech models (none are included)
+llamacpp\             AI summary engine (llama.cpp libraries, unmodified; see SOURCE.txt)
+models\               downloaded speech and summary models (none are included)
 data\                 settings, logs (kept 7 days), temporary files
 LICENSE.txt, THIRD-PARTY-LICENSES.txt, SHA256SUMS.txt
 
@@ -78,13 +102,14 @@ This package contains only three programs:
   ffmpeg\ffmpeg.exe                        - FFmpeg essentials build by gyan.dev,
                                            unmodified (not signed; see ffmpeg\SOURCE.txt)
 There is no self-made .exe, no installer and no packer. Everything else is Python code
-and libraries. To check any file against SHA256SUMS.txt, open a Command Prompt here:
+and libraries, including the AI summary engine in llamacpp\ (llama.cpp's official
+libraries, unmodified and not signed; its network component is left out). To check any file against SHA256SUMS.txt, open a Command Prompt here:
   certutil -hashfile ffmpeg\ffmpeg.exe SHA256
 
 PRIVACY
 -------
-Audio and transcripts never leave this PC. There is no telemetry, analytics or update
-server. The network is used only when you start a model download; Options > Offline Mode
+Audio, transcripts and AI summaries never leave this PC. There is no telemetry,
+analytics or update server. The network is used only when you start a model download; Options > Offline Mode
 blocks even that. Options > Advanced > Privacy check shows the details.
 
 NEW MODELS

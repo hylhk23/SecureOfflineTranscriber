@@ -29,6 +29,15 @@ anyio, h11, httpx2,           MIT / BSD-3-Clause                      (dependenc
 filelock, fsspec, packaging,  MIT / BSD-3-Clause / Apache-2.0 /       (dependencies of huggingface_hub and others)
   PyYAML, tqdm, truststore,   MPL-2.0 / PSF-2.0
   typing_extensions
+llama.cpp and ggml b12000     MIT (official Windows CPU build,        https://github.com/ggml-org/llama.cpp
+  (AI summary, llamacpp\)     unmodified; libraries only, no program,
+                              no network library)
+  LLVM OpenMP (libomp.dll)    Apache-2.0 WITH LLVM-exception          https://openmp.llvm.org/
+  msvcp140.dll                Microsoft Visual C++ redistributable    https://learn.microsoft.com/cpp/windows/
+English spelling word data    MIT-like (English Speller Database,     https://github.com/en-wl/wordlist
+  (app\data\spelling.json)    Kevin Atkinson; Australian data by
+                              Benjamin Titze); the notices are in
+                              THIRD-PARTY-LICENSES.txt in the package
 
 The LGPL libraries are shipped as separate DLL/PYD files in python\Lib\site-packages and can be replaced by the
 user with compatible versions. Their source code is available at the addresses above.
@@ -42,11 +51,20 @@ FFmpeg 9.0 (ffmpeg)           GPL-2.0-or-later (configured with        https://f
                               --enable-gpl; unmodified binary from the
                               imageio-ffmpeg 0.8.1 package; run as a
                               separate program; see ffmpeg/SOURCE.txt)
+llama.cpp and ggml b12000     MIT (official macOS arm64 build,        https://github.com/ggml-org/llama.cpp
+  (AI summary, llamacpp/)     unmodified; libraries only, no program;
+                              its network library is included because
+                              the other libraries link to it, and is
+                              never given a server address)
 The LGPL Qt libraries are separate files in python/lib/python3.13/site-packages/PySide6 and can be replaced likewise.
 
 Speech models are NOT included. They are downloaded by the user from Hugging Face and keep their own licences:
 OpenAI Whisper and its CTranslate2 conversions (MIT), Distil-Whisper (MIT), SenseVoiceSmall by FunAudioLLM
 (FunASR Model Open Source License Agreement), Parakeet-TDT-0.6B-v3 by NVIDIA (CC-BY-4.0), Moonshine by Useful
 Sensors (MIT). The model manager shows each model's licence before it is downloaded.
+
+AI summary models are NOT included either. They are downloaded by the user from Hugging Face: Qwen3-1.7B,
+Qwen3-4B-Instruct-2507, Qwen3.5-2B and Qwen3.5-4B by the Qwen team, Alibaba Cloud, and Gemma 4 E2B and E4B by
+Google (all Apache-2.0; GGUF files as published by Qwen or converted by Unsloth).
 
 Screenshots on the project page use a sample from the LibriSpeech ASR corpus (V. Panayotov et al., CC BY 4.0).

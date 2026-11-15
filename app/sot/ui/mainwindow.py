@@ -5,6 +5,7 @@ import html
 import logging
 import os
 import time
+from collections import Counter
 
 from PySide6.QtCore import QMimeData, QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import (QAction, QActionGroup, QDesktopServices, QFont, QFontDatabase, QIcon, QKeySequence, QShortcut,
@@ -16,13 +17,19 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QFile
                                QSizePolicy)
 
 from .. import APP_NAME, APP_TITLE, SESSION_EXT, VERSION, audioproc, exporters, media, paths, postproc, session, stats, system
-from ..modelmgr import LANG_NAMES, human_size
+from .. import spelling
+from .. import summary as summ
+from ..modelmgr import LANG_NAMES, human_size, ram_gb
+from ..summaryworker import SummaryWorker
 from ..settings import DEFAULTS
 from .dialogs import (AboutDialog, ExportDialog, FindReplaceDialog, FirstRunDialog, ReportDialog,
                       ShortcutsDialog, file_properties_text, parse_time)
 from .options import HOTWORD_LIMIT, LANGS, OptionsDialog, run_with_progress
 from .player import Player
+from .summaryview import SummaryView, to_html
 from .transcript import TranscriptEdit
+
+SUMMARY_TAB = 5  # Options > AI Summary
 
 log = logging.getLogger("window")
 MEDIA_FILTER = "Audio and video (*.wav *.mp3 *.m4a *.aac *.flac *.ogg *.opus *.wma *.mp4 *.mkv *.mov *.avi *.webm);;All files (*)"
@@ -64,9 +71,14 @@ class MainWindow(QMainWindow):
         self.autosave_paths = {}  # files the last auto-save wrote, overwritten when a stopped job is resumed
         self._last_hl = None
         self._journal_t = 0.0
+        self.summary = None       # {"text", "model", "language", "created", "stats", ...} of the AI summary on screen
+        self.sjob = None          # the AI summary being written
+        self.summary_modified = False
+        self.sworker = SummaryWorker(settings.data_folder())
         self._build_ui()
         self._build_menus()
-        self.manager.before_update = self.worker.unload  # Windows cannot replace a loaded model's files
+        # Windows cannot replace a loaded model's files
+        self.manager.before_update = lambda: (self.worker.unload(), self.sworker.unload())
         self.player = Player()
         self.player.speed = float(settings.get("general.playback_speed"))
         self.player.denoise = settings.get("advanced.noise_reduction") if settings.get("advanced.noise_in_player") else "off"
@@ -193,7 +205,16 @@ class MainWindow(QMainWindow):
         self.raw.setFont(mono)
         self.tabs.addTab(self.editor, "Transcript")
         self.tabs.addTab(self.raw, "Raw output")
-        self.tabs.currentChanged.connect(lambda _: self.update_actions())
+        self.summary_view = SummaryView()  # shown as a third tab when Options > AI Summary is on
+        self.summary_view.time_clicked.connect(self.play_from)
+        self.summary_view.run_requested.connect(lambda: self.start_summary())
+        self.summary_view.stop_requested.connect(self.stop_summary)
+        self.summary_view.copy_requested.connect(self.copy_summary)
+        self.summary_view.save_requested.connect(self.save_summary_as)
+        self.summary_view.options_requested.connect(lambda: self.options(SUMMARY_TAB))
+        self.summary_view.edited.connect(self._summary_edited)
+        self.summary_view.b_edit.toggled.connect(self._summary_edit_toggled)
+        self.tabs.currentChanged.connect(self._tab_changed)
         v.addWidget(self.tabs, 1)
         # ---- status line
         srow = QHBoxLayout()
@@ -268,6 +289,7 @@ class MainWindow(QMainWindow):
         self.a_add_vocab = self._act(m, "Add Selection to &Vocabulary…", self.add_selection_to_vocab)
         self._act(m, "Add &Names from Documents…", self.names_from_documents)
         self.a_apply_vocab = self._act(m, "Apply Vocabulary &Replacements", self.apply_vocab)
+        self.a_spelling = self._act(m, "Change English &Spelling…", self.change_spelling)
         self._act(m, "&Go to Time…", self.go_to_time, "Ctrl+G")
         for a in (self.a_cut, self.a_copy, self.a_paste, self.a_selall, self.a_undo, self.a_redo):
             a.setShortcutContext(Qt.WidgetWithChildrenShortcut)  # let the text widgets handle their own keys
@@ -276,6 +298,9 @@ class MainWindow(QMainWindow):
         self.a_go = self._act(m, "&Transcribe / Resume", self.transcribe, "F5")
         self.a_restart = self._act(m, "Start &Again from the Beginning", self.start_again)
         self.a_stop = self._act(m, "&Stop", self.stop, "Esc")
+        m.addSeparator()
+        self.a_sum_go = self._act(m, "Write AI &Summary", lambda: self.start_summary(), "Ctrl+M")
+        self.a_sum_stop = self._act(m, "Stop AI Su&mmary", self.stop_summary)
         m.addSeparator()
         self.a_play = self._act(m, "&Play / Pause", self.play_pause, "F9")
         self.a_replay = self._act(m, "&Replay Sentence", self.replay_sentence, "F6")
@@ -333,9 +358,11 @@ class MainWindow(QMainWindow):
         self._act(m, "&Add Files to Queue…", self.add_to_queue)
         # Options
         m = mb.addMenu("&Options")
-        for i, name in enumerate(["General", "Transcription", "Vocabulary", "Output", "Advanced"]):
-            self._act(m, f"&{name}…", lambda _=False, t=i: self.options(t))
+        for i, name in enumerate(["General", "Transcription", "Vocabulary", "Output", "Advanced", "AI Summary"]):
+            self._act(m, f"&{name}…" if name != "AI Summary" else "AI S&ummary…", lambda _=False, t=i: self.options(t))
         m.addSeparator()
+        self.a_use_summary = self._act(m, "Use AI Su&mmary", lambda on: self._set_quick("summary.enabled", on),
+                                       checkable=True)
         self.a_offline = self._act(m, "Offline &Mode", self._toggle_offline, checkable=True)
         self.a_autosave = self._act(m, "Auto-save &Transcript", self._toggle_autosave, checkable=True)
         self.a_awake = self._act(m, "&Keep PC Awake During Jobs",
@@ -353,7 +380,30 @@ class MainWindow(QMainWindow):
         self._act(m, "&About", lambda: AboutDialog(self, self.icon_path).exec())
 
     def _active(self):
+        w = self.tabs.currentWidget()
+        if w is self.summary_view:
+            return self.summary_view.editor if self.summary_view.b_edit.isChecked() else self.summary_view.browser
         return self.editor if self.tabs.currentIndex() == 0 else self.raw
+
+    def _tab_changed(self, _i):
+        if self.tabs.currentWidget() is self.summary_view:
+            self.tabs.setTabText(self.tabs.indexOf(self.summary_view), "AI summary")
+        self.update_actions()
+
+    def _sync_summary_tab(self):
+        """The AI summary tab is there only while Options > AI Summary > Use AI summary is on."""
+        on = bool(self.settings.get("summary.enabled"))
+        i = self.tabs.indexOf(self.summary_view)
+        if on and i < 0:
+            self.tabs.addTab(self.summary_view, "AI summary")
+            if self.summary:
+                self._show_summary()
+            elif self.sjob is None:
+                self.summary_view.set_state("waiting" if self.job else "empty")
+        elif not on and i >= 0:
+            if self.sjob:
+                self.stop_summary()
+            self.tabs.removeTab(i)
 
     # ================================================================== settings in the window
     def apply_settings(self):
@@ -381,7 +431,10 @@ class MainWindow(QMainWindow):
         if hasattr(self, "player"):
             self.player.set_options(speed=sp, denoise=s.get("advanced.noise_reduction")
                                     if s.get("advanced.noise_in_player") else "off")
-        for a, on in ((self.a_offline, s.get("advanced.offline")), (self.a_autosave, s.get("output.autosave") != "off"),
+        self.summary_view.set_font_size(int(s.get("general.font_size")))
+        self._sync_summary_tab()
+        for a, on in ((self.a_use_summary, s.get("summary.enabled")),
+                      (self.a_offline, s.get("advanced.offline")), (self.a_autosave, s.get("output.autosave") != "off"),
                       (self.a_awake, s.get("general.keep_awake")), (self.a_top, s.get("general.always_on_top"))):
             a.blockSignals(True)
             a.setChecked(bool(on))
@@ -555,8 +608,8 @@ class MainWindow(QMainWindow):
         from .. import modellist
         lists = [f for f in files if modellist.is_list_file(f)]
         if lists:  # a model list file someone sent: offer to use it
-            if QMessageBox.question(self, "Model list", f"{os.path.basename(lists[0])} is a model list. Use it for "
-                                    "Options > Transcription?") == QMessageBox.Yes:
+            if QMessageBox.question(self, "Model list", f"{os.path.basename(lists[0])} is a model list. Use it for the "
+                                    "speech and AI summary models in Options?") == QMessageBox.Yes:
                 from .options import import_model_list
                 if import_model_list(self, self.manager, lists[0]):
                     self.refresh_models()
@@ -578,6 +631,8 @@ class MainWindow(QMainWindow):
             self.enqueue([path])
             return False
         if not keep_text and not self.confirm_unsaved():
+            return False
+        if not self.confirm_stop_summary():
             return False
         try:
             info = media.probe(path)
@@ -628,12 +683,17 @@ class MainWindow(QMainWindow):
         self.stats_label.setText(" ")
         self.stats_label.setToolTip("")
         self.editor.document().setModified(False)
+        self.summary = None
+        self.summary_modified = False
+        self.summary_view.clear()
+        if self.settings.get("summary.enabled") and self.settings.get("summary.auto"):
+            self.summary_view.set_state("empty", "The summary is written when the transcript is complete.")
 
     def close_file(self):
         if self.job:
             self.status_msg("Stop the job first.")
             return
-        if not self.confirm_unsaved():
+        if not self.confirm_unsaved() or not self.confirm_stop_summary():
             return
         self.player.stop()
         self.info = None
@@ -647,9 +707,11 @@ class MainWindow(QMainWindow):
         self._update_pos()
 
     def confirm_unsaved(self):
-        if not self.editor.document().isModified() or not self.settings.get("general.ask_unsaved"):
+        if not (self.editor.document().isModified() or self.summary_modified) or \
+                not self.settings.get("general.ask_unsaved"):
             return True
-        r = QMessageBox.question(self, APP_NAME, "The transcript has unsaved edits. Save them?",
+        what = "transcript" if self.editor.document().isModified() else "AI summary"
+        r = QMessageBox.question(self, APP_NAME, f"The {what} has unsaved edits. Save them?",
                                  QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
         if r == QMessageBox.Cancel:
             return False
@@ -737,7 +799,7 @@ class MainWindow(QMainWindow):
         self.stop() if self.job else self.transcribe()
 
     def transcribe(self):
-        if self.job:
+        if self.job or not self.confirm_stop_summary():
             return
         waiting = [q for q in self.queue if q["status"] == "Waiting"]
         if waiting:
@@ -768,7 +830,7 @@ class MainWindow(QMainWindow):
         return t
 
     def start_again(self):
-        if self.job or not self.info:
+        if self.job or not self.info or not self.confirm_stop_summary():
             return
         if self.editor.toPlainText().strip() and QMessageBox.question(
                 self, "Start again", "Transcribe the whole file again from the beginning?\n\nThe text on screen is "
@@ -895,6 +957,8 @@ class MainWindow(QMainWindow):
         if self.settings.get("general.keep_awake"):
             system.keep_awake(True)
         self.worker.submit(job)
+        if self.settings.get("summary.enabled") and not self.summary:
+            self.summary_view.set_state("waiting")
         log.info("job started: %s (%.0f s), language %s", os.path.basename(info["path"]), info["duration"], lang)
         self._journal()
         self.update_go_label()
@@ -911,6 +975,16 @@ class MainWindow(QMainWindow):
 
     # ---------------------------------------------------------------- worker events
     def _tick(self):
+        if self.sjob:
+            for ev in self.sworker.poll():
+                self._summary_event(ev)
+                if not self.sjob:
+                    break
+            if self.sjob:
+                self.summary_view.flush(running=True)
+                if not self.sworker.alive():
+                    self._summary_failed("The summary process ended unexpectedly (often: not enough memory for the "
+                                         "model). Choose a smaller model or context size in Options > AI Summary.")
         if self.job:
             for ev in self.worker.poll():
                 self._event(ev)
@@ -956,6 +1030,11 @@ class MainWindow(QMainWindow):
             script = postproc.script_for(seg.get("lang") or j["language"], self.settings)
             if script:
                 live["text"] = postproc.convert_script(seg["text"], script)
+            if (seg.get("lang") or j["language"]) == "en":
+                variant, _ = postproc.english_spelling(self.settings)
+                if variant:
+                    live["text"], _ = postproc.respell(
+                        live["text"], variant, postproc.vocabulary_terms(self.settings, j["language"]))
             self.editor.append_block(live)
             self.editor.document().setModified(False)  # live text is not an edit
             if len(self.job_segments) % 10 == 0 or time.perf_counter() - self._journal_t > 3:
@@ -1015,7 +1094,8 @@ class MainWindow(QMainWindow):
         model = wst.get("model") or j["model"] or {}
         lang = wst.get("language") or j["language"]
         segs, dropped = postproc.filter_segments(self.job_segments, self.settings)
-        segs, reps = postproc.clean_segments(segs, self.settings, lang)
+        spelled = Counter()
+        segs, reps = postproc.clean_segments(segs, self.settings, lang, spelled)
         rs = self.resume
         if rs and rs["segments"] and segs:  # no repeated word where the resumed text joins the earlier text
             t = postproc.trim_overlap(rs["segments"][-1]["text"], segs[0]["text"])
@@ -1031,6 +1111,11 @@ class MainWindow(QMainWindow):
             self._overlap_note = None
         self.cleanup_log += [f"Filtered [{media.fmt_clock(s['start'])}] \"{s['text']}\" - {why}" for s, why in dropped]
         self.cleanup_log += [f"Replaced '{h}' → '{c}' ×{n}" for h, c, n in reps]
+        if lang == "en" or spelled:
+            what = postproc.spelling_description(self.settings)
+            self.cleanup_log.append(f"English spelling: {what}" + (
+                f" - changed {sum(spelled.values())} word{'s' if sum(spelled.values()) != 1 else ''}: "
+                f"{spelling.summary_line(spelled)}" if spelled else ""))
         script = postproc.script_for(lang, self.settings)
         if script or any(postproc.has_cjk(s["text"]) for s in segs[:50]):
             names = {"hk": "Traditional (Hong Kong)", "tw": "Traditional (Taiwan)", "cn": "Simplified"}
@@ -1090,8 +1175,19 @@ class MainWindow(QMainWindow):
         if low_note:
             self.status_msg("Little of the recording was recognised as speech; Raw output lists the stretches "
                             "without text.")
-            if not q:
+            if not q:  # after this handler returns, so an automatic summary is not held up by the box
                 QTimer.singleShot(0, lambda: QMessageBox.warning(self, "Transcribe", low_note))
+        if cancelled and self.settings.get("summary.enabled"):
+            self.summary_view.set_state("empty", "The transcript is not complete, so no summary was written. "
+                                                 "Resume it (F5) first.")
+        if not cancelled and self.settings.get("summary.enabled") and self.settings.get("summary.auto") \
+                and not (q and self.stop_all):
+            if self.start_summary(auto=True, qitem=q):
+                if q:
+                    q["status"] = "Done · little speech found · writing summary" if low_note else \
+                        "Done · writing summary"
+                    self._queue_status(q)
+                return  # the queue carries on when the summary is written
         if q and not self.stop_all:
             QTimer.singleShot(200, self._next_in_queue)
         elif q and self.queue_totals:
@@ -1246,6 +1342,11 @@ class MainWindow(QMainWindow):
                 f"compute {s.get('advanced.compute_type')}, vocabulary set '{s.get('vocabulary.active')}'",
                 "=" * 78]
         tail = ["", "=" * 78, "Clean-up:"] + (self.cleanup_log or ["(nothing changed)"])
+        if self.summary and self.summary.get("stats"):
+            sm = self.summary
+            tail += ["", "=" * 78, f"AI summary: {summ.stats_line(sm['stats'], (sm.get('model') or {}).get('name', ''))}",
+                     f"Summary settings: language {sm.get('language')}, length {sm.get('length')}, context "
+                     f"{sm['stats'].get('context')} tokens, temperature {sm.get('temperature')}"]
         self.raw.setPlainText("\n".join(head + self.raw_lines + tail))
 
     def _stats_menu(self, pos):
@@ -1377,10 +1478,12 @@ class MainWindow(QMainWindow):
                 "settings": {k: v for k, v in self.settings.values.items()
                              if k.startswith(("transcription.", "advanced.", "output.", "vocabulary.active"))
                              and k != "transcription.location_cache"},
-                "edited": self.editor.document().isModified()}
+                "edited": self.editor.document().isModified(),
+                "summary": self._summary_for_session()}
 
     def _write_session(self, path):
         session.save(path, self._session_data())
+        self.summary_modified = False
 
     def save_session(self):
         if not self.editor.blocks():
@@ -1411,6 +1514,8 @@ class MainWindow(QMainWindow):
         return self.save_session()
 
     def open_session(self, path=None):
+        if not self.confirm_stop_summary():
+            return
         if not path:
             path, _ = QFileDialog.getOpenFileName(self, "Open Transcript", self.settings.output_folder(),
                                                   f"Transcript session (*{SESSION_EXT})")
@@ -1450,6 +1555,9 @@ class MainWindow(QMainWindow):
         else:
             self.show_blocks()
         self.editor.document().setModified(False)
+        self.summary = data.get("summary") or None
+        self.summary_modified = False
+        self._show_summary()
         self.update_stats_bar()
         self.update_raw()
         self.session_path = path
@@ -1459,6 +1567,354 @@ class MainWindow(QMainWindow):
         if self.resume_point() is not None:
             self.status_msg(f"This transcript stopped at {media.fmt_clock(self.resume_point())}. Press Resume to "
                             "carry on from there.")
+
+    # ================================================================== AI summary (version 2.3.0)
+    def _summary_options(self, model):
+        s = self.settings
+        jm = self.job_meta or {}
+        lang = jm.get("language") or s.get("transcription.language")
+        code = summ.output_language(s.get("summary.language"), lang, s.get("transcription.script_yue"),
+                                    s.get("transcription.script_zh"))
+        length = s.get("summary.length") if s.get("summary.length") in summ.LENGTHS else "standard"
+        info = self.info or {}
+        return {"family": (model.entry or {}).get("family", "qwen3"), "lang": code, "length": length,
+                "spelling": postproc.english_spelling(s)[0] if code == "en" else None,
+                "sections": [x for x in s.get("summary.sections") if x in summ.SECTIONS] or list(summ.SECTIONS),
+                "times": bool(s.get("summary.times")), "instructions": s.get("summary.instructions") or "",
+                "temperature": float(s.get("summary.temperature")),
+                "max_tokens": int(s.get("summary.max_tokens")) or summ.LENGTHS[length]["tokens"],
+                "file": os.path.basename(info.get("path", "")) or "the recording",
+                "duration_text": media.fmt_clock(info.get("duration") or 0),
+                "transcript_lang_name": LANG_NAMES.get(lang, "") if lang != "auto" else ""}
+
+    def _summary_input(self):
+        """The edited transcript for the model, with times every ~30 s: unedited paragraphs go back to their
+        segments (finer times to point to); an edited paragraph stays whole so the correction is used."""
+        out = []
+        for b in self.segment_blocks(self.editor.blocks()):
+            t = (b.get("text") or "").strip()
+            if not t:
+                continue
+            if out and float(b["start"]) - out[-1]["start"] < 30 and len(out[-1]["text"]) + len(t) < 400:
+                sep = "" if postproc.has_cjk(out[-1]["text"][-1:]) and postproc.has_cjk(t[:1]) else " "
+                out[-1]["text"] += sep + t
+            else:
+                out.append({"start": float(b["start"]), "text": t})
+        return out
+
+    def summary_context(self, model):
+        n = int(self.settings.get("summary.context") or 0)
+        if n <= 0:
+            n = 16384 if ram_gb()[0] >= 12 else 8192
+        cap = int((model.entry or {}).get("context_max") or n)
+        return max(2048, min(n, cap))
+
+    def start_summary(self, auto=False, qitem=None):
+        """Write the AI summary of the transcript on screen, in the summary process. True if it started."""
+        from .. import llm
+        if self.sjob or self.job:
+            return False
+        if not self.settings.get("summary.enabled"):
+            if not auto:
+                QMessageBox.information(self, "AI summary", "The AI summary is off. Turn it on in Options > AI Summary "
+                                        "(or Options > Use AI Summary).")
+            return False
+        blocks = self._summary_input()
+        if not blocks:
+            return False
+        if (self.job_meta or {}).get("partial") or self.resume_point() is not None:
+            msg = ("The transcript is not complete, so it cannot be summarised yet. Resume the transcription (F5) "
+                   "first.")
+            self.summary_view.set_state("empty", msg)
+            if not auto:
+                QMessageBox.information(self, "AI summary", msg)
+            return False
+        ok, why = llm.available()
+        if not ok:
+            self.summary_view.set_state("failed", why)
+            if not auto:
+                QMessageBox.warning(self, "AI summary", why + "\n\nUnzip the program again to restore them.")
+            return False
+        self.manager.scan_llm()
+        model = self.manager.llm_choice(self.settings.get("summary.model"))
+        if model is None:
+            self.summary_view.set_state("no_model")
+            if not auto and QMessageBox.question(self, "AI summary", "No summary model is installed (or the chosen "
+                                                 "one is not). Open Options > AI Summary to download one?") \
+                    == QMessageBox.Yes:
+                self.options(SUMMARY_TAB)
+            return False
+        path = self.manager.llm_file(model)
+        if not path:
+            self.summary_view.set_state("failed", f"The file of {model.name} was not found in {model.folder}.")
+            return False
+        if self.summary and self.summary.get("text") and not auto and (self.summary_modified or
+                                                                        self.summary.get("edited")):
+            if QMessageBox.question(self, "AI summary", "Write the summary again? Your edits to the current summary "
+                                    "are replaced.") != QMessageBox.Yes:
+                return False
+        opts = self._summary_options(model)
+        ctx = self.summary_context(model)
+        threads = int(self.settings.get("summary.threads")) or int(self.settings.get("transcription.threads")) or 0
+        total_gb = ram_gb()[0]
+        if total_gb < 12:
+            self.worker.unload()  # free the speech model's memory for the language model
+        job = {"model_path": path, "model_name": model.name, "context": ctx, "threads": threads, "blocks": blocks,
+               "options": opts, "keep_loaded": bool(self.settings.get("summary.keep_loaded")),
+               "background": bool(self.settings.get("summary.background") or
+                                  self.settings.get("general.background_priority")),
+               "gpu": bool(system.IS_MAC and self.settings.get("summary.gpu"))}
+        script = summ.script_for_output(opts["lang"], self.settings.get("transcription.script_yue"),
+                                        self.settings.get("transcription.script_zh"))
+        self.sjob = {"t0": time.perf_counter(), "model": {"id": model.key, "name": model.name}, "opts": opts,
+                     "qitem": qitem, "path": (self.info or {}).get("path"), "stage": "Starting", "frac": 0.0,
+                     "script": script, "context": ctx, "discard": False}
+        if self.tabs.indexOf(self.summary_view) >= 0 and self.tabs.currentWidget() is not self.summary_view:
+            self.tabs.setTabText(self.tabs.indexOf(self.summary_view), "AI summary \u2022")
+        self.summary_view.set_text("", running=True)
+        self.summary_view.set_state("running", f"Starting {model.name}…",
+                                    footer=f"{model.name} · context {ctx:,} tokens · on this computer")
+        self.summary_view.set_progress(0)
+        if self.settings.get("general.keep_awake"):
+            system.keep_awake(True)
+        self.sworker.submit(job)
+        log.info("summary started: %s with %s (context %d)", os.path.basename(opts["file"]), model.name, ctx)
+        if not self.job:
+            self.stage(f"AI summary: starting {model.name}…")
+        self.update_actions()
+        return True
+
+    def stop_summary(self):
+        if self.sjob:
+            self.sworker.cancel()
+            self.summary_view.set_busy_label("Stopping…")
+
+    def confirm_stop_summary(self):
+        """Before opening another file or starting again: an AI summary being written is stopped (after asking)."""
+        if not self.sjob:
+            return True
+        if QMessageBox.question(self, "AI summary", "An AI summary is being written for this transcript. Stop it?") \
+                != QMessageBox.Yes:
+            return False
+        self.sjob["discard"] = True
+        self.sworker.cancel()
+        self._summary_end()
+        self.summary_view.clear()
+        return True
+
+    def _summary_event(self, ev):
+        kind = ev[0]
+        sj = self.sjob
+        if kind == "stage":
+            sj["stage"] = ev[1]
+            self.summary_view.set_busy_label(f"{ev[1]}…")
+            if not self.job:
+                self.stage(f"AI summary: {ev[1]}…")
+        elif kind == "progress":
+            sj["frac"] = ev[1]
+            self.summary_view.set_progress(ev[1])
+            if not self.job:
+                self.progress.setVisible(True)
+                self.progress.setValue(int(ev[1] * 1000))
+        elif kind == "text":
+            self.summary_view.append_text(ev[1])
+        elif kind == "model":
+            sj["context"] = ev[1].get("context", sj["context"])
+            if system.IS_MAC and self.settings.get("summary.gpu") and ev[1].get("device_note"):
+                self.cleanup_log.append(f"AI summary on the processor: {ev[1]['device_note']}")
+        elif kind == "done":
+            self._summary_done(ev[1], ev[2])
+        elif kind == "cancelled":
+            self._summary_cancelled()
+        elif kind == "error":
+            self._summary_failed(ev[1])
+
+    def _summary_end(self):
+        sj = self.sjob
+        self.sjob = None
+        if not self.job:
+            self.progress.setVisible(False)
+            system.keep_awake(False)
+        self.update_actions()
+        return sj
+
+    def _queue_after_summary(self, sj):
+        q = sj.get("qitem") if sj else None
+        if not q:
+            return
+        q["status"] = "Done · little speech found" if q.get("error") else "Done"
+        self._queue_status(q)
+        if not self.stop_all:
+            QTimer.singleShot(200, self._next_in_queue)
+        elif self.queue_totals:
+            self.stats_label.setText(stats.queue_line(self.queue_totals))
+
+    def _summary_done(self, text, st):
+        sj = self._summary_end()
+        if sj["discard"]:
+            return
+        text = summ.clean_output(text)
+        if sj["script"]:
+            text = postproc.convert_script(text, sj["script"])
+        o = sj["opts"]
+        if o.get("spelling"):  # the model may not follow the spelling it was asked for
+            text, ch = postproc.respell(text, o["spelling"], postproc.vocabulary_terms(
+                self.settings, (self.job_meta or {}).get("language")))
+            if ch:
+                self.cleanup_log.append(f"AI summary, English spelling {spelling.NAMES[o['spelling']]}: changed "
+                                        f"{sum(ch.values())}: {spelling.summary_line(ch)}")
+        self.summary = {"text": text, "model": sj["model"], "language": o["lang"], "length": o["length"],
+                        "sections": o["sections"], "times": o["times"], "temperature": o["temperature"],
+                        "created": datetime.datetime.now().isoformat(timespec="seconds"), "stats": st,
+                        "edited": False, "file": (self.summary or {}).get("file")}
+        self.summary_modified = False
+        self._show_summary()
+        log.info("summary done: %s", summ.stats_line(st, sj["model"]["name"]))
+        saved = self._autosave_summary()
+        self.update_raw()
+        self.notify(f"{os.path.basename(sj['path'] or '')}: AI summary ready")
+        if not self.job:
+            self.stage("AI summary written" + (f" · saved to {os.path.dirname(saved)}" if saved else "")
+                       + " · see the AI summary tab")
+        if st.get("truncated"):
+            self.status_msg("The summary reached its length limit and may be cut short. Options > AI Summary > "
+                            "Longest summary raises it.")
+        self._queue_after_summary(sj)
+        self.update_title()
+
+    def _summary_cancelled(self):
+        sj = self._summary_end()
+        if sj["discard"]:
+            return
+        partial = self.summary_view.text().strip()
+        if partial:
+            self.summary = {"text": partial, "model": sj["model"], "language": sj["opts"]["lang"],
+                            "length": sj["opts"]["length"], "created": datetime.datetime.now().isoformat(timespec="seconds"),
+                            "stats": {}, "edited": False, "partial": True}
+        self.summary_view.set_text(partial)
+        self.summary_view.set_state("stopped" if partial else "empty", "Stopped." + (
+            " The text written so far is shown; Write again starts over." if partial else ""))
+        if not self.job:
+            self.stage("AI summary stopped")
+        self._queue_after_summary(sj)
+
+    def _summary_failed(self, message):
+        sj = self._summary_end()
+        if sj and sj["discard"]:
+            return
+        log.error("summary failed: %s", message)
+        self.summary_view.set_text(self.summary_view.text())
+        self.summary_view.set_state("failed", f"The summary could not be written: {message}")
+        if not self.job:
+            self.stage(f"AI summary failed: {message}")
+        q = sj.get("qitem") if sj else None
+        if not q:
+            QMessageBox.warning(self, "AI summary", f"The summary could not be written:\n\n{message}\n\n"
+                                "The transcript is not affected.")
+        self._queue_after_summary(sj)
+
+    def _show_summary(self):
+        sm = self.summary
+        if not sm or not sm.get("text"):
+            self.summary_view.clear()
+            return
+        self.summary_view.set_text(sm["text"])
+        name = (sm.get("model") or {}).get("name", "")
+        foot = summ.stats_line(sm.get("stats") or {}, name) or name
+        when = (sm.get("created") or "").replace("T", " ")[:16]
+        self.summary_view.set_state("stopped" if sm.get("partial") else "done",
+                                    f"Written by {name} on this computer" + (f" · {when}" if when else "")
+                                    + (" · edited" if sm.get("edited") else ""),
+                                    footer=(foot + " · " if foot else "") + "Check the summary against the transcript: "
+                                    "small language models can get details wrong. Click a time to hear that part.")
+
+    def _summary_for_session(self):
+        if not self.summary:
+            return None
+        sm = dict(self.summary)
+        if self.summary_view.b_edit.isChecked() or self.summary_modified:
+            sm["text"] = self.summary_view.text()
+        return sm
+
+    def _summary_edited(self):
+        if self.summary is not None:
+            self.summary_modified = True
+            self.summary["edited"] = True
+            self.update_title()
+
+    def _summary_edit_toggled(self, on):
+        if not on and self.summary is not None:
+            self.summary["text"] = self.summary_view.text()
+            if self.summary_modified:
+                self._show_summary()
+        self.update_actions()
+
+    def _summary_meta(self):
+        meta = self.meta()
+        sm = self.summary or {}
+        meta["summary_model"] = (sm.get("model") or {}).get("name", "a language model")
+        meta["summary_date"] = (sm.get("created") or "").replace("T", " ")[:16]
+        return meta
+
+    def _autosave_summary(self):
+        """With auto-save on, the summary is saved as {name}_summary.md next to the transcript (and in its session)."""
+        if not self.summary or self.settings.get("output.autosave") == "off" or not self.segments:
+            return None
+        folder = os.path.dirname(self.session_path) if self.session_path else self.output_dir()
+        if not folder:
+            return None
+        path = None
+        try:
+            if self.settings.get("summary.save_file"):
+                old = self.summary.get("file")
+                base = exporters.base_name(self.meta(), self.settings.get("output.pattern")) + exporters.SUMMARY_SUFFIX
+                path = old if old and os.path.dirname(old) == folder and os.path.basename(old).startswith(base) \
+                    else os.path.join(folder, base + ".md")
+                if path != old and os.path.exists(path) and self.settings.get("output.if_exists") != "overwrite":
+                    path = exporters.unique(path, "number")
+                os.makedirs(folder, exist_ok=True)
+                exporters.write_summary("md", path, self.summary["text"], self._summary_meta(), self.settings)
+                self.summary["file"] = path
+            if self.session_path and os.path.isfile(self.session_path):
+                self._write_session(self.session_path)
+        except Exception as ex:
+            log.exception("summary save failed")
+            self.status_msg(f"The summary could not be saved: {ex}")
+            return None
+        return path or self.session_path
+
+    def copy_summary(self):
+        text = self.summary_view.text()
+        if not text.strip():
+            return
+        md = QMimeData()
+        md.setText(summ.to_plain(text))
+        md.setHtml(to_html(text))
+        QApplication.clipboard().setMimeData(md)
+        self.status_msg("AI summary copied to the clipboard.")
+
+    def save_summary_as(self):
+        text = self.summary_view.text()
+        if not text.strip():
+            return
+        base = exporters.base_name(self.meta(), self.settings.get("output.pattern")) + exporters.SUMMARY_SUFFIX
+        start = os.path.join(self.output_dir() or self.settings.output_folder(), base + ".md")
+        p, flt = QFileDialog.getSaveFileName(self, "Save AI Summary As", start,
+                                             "Markdown (*.md);;Plain text (*.txt);;Word (*.docx)")
+        if not p:
+            return
+        ext = os.path.splitext(p)[1].lower().lstrip(".")
+        if ext not in exporters.SUMMARY_FORMATS:
+            ext = "txt" if "txt" in flt else "docx" if "docx" in flt else "md"
+            p += "." + ext
+        try:
+            if self.summary is not None:
+                self.summary["text"] = text
+            exporters.write_summary(ext, p, text, self._summary_meta(), self.settings)
+        except Exception as ex:
+            QMessageBox.warning(self, "Save AI Summary", str(ex))
+            return
+        self.status_msg(f"Saved {p}")
 
     def copy_transcript(self):
         """Plain text with times and HTML."""
@@ -1520,6 +1976,70 @@ class MainWindow(QMainWindow):
         self.cleanup_log += lines
         self.update_title()
         self.status_msg("; ".join(lines) if lines else "No replacement matched.")
+
+    def _is_english(self, item):
+        lang = item.get("lang") or (self.job_meta or {}).get("language")
+        return lang == "en" or (lang in (None, "", "auto") and not postproc.has_cjk(item.get("text") or ""))
+
+    def change_spelling(self, variant=None):
+        """Edit > Change English Spelling: the English text of the open transcript in another spelling (the AI
+        summary too, if there is one). The setting in Options is not changed."""
+        blocks = self.editor.blocks()
+        if not blocks:
+            return
+        if variant is None:
+            current, _ = postproc.english_spelling(self.settings)
+            items = [f"{name} ({spelling.EXAMPLES[v]})" for v, name in spelling.VARIANTS]
+            keys = [v for v, _ in spelling.VARIANTS]
+            item, ok = QInputDialog.getItem(
+                self, "Change English Spelling", "Spell the English words of this transcript in:", items,
+                keys.index(current) if current in keys else 1, False)
+            if not ok:
+                return
+            variant = keys[items.index(item)]
+        if postproc.spelling_words(variant) is None:
+            QMessageBox.warning(self, "Change English Spelling", "The spelling table of the program cannot be read, "
+                                "so the text was not changed. Reinstalling the program restores it.")
+            return
+        lang = (self.job_meta or {}).get("language")
+        protect = postproc.vocabulary_terms(self.settings, lang)
+        total = Counter()
+        english = [b for b in blocks if self._is_english(b)]
+        for b in english:
+            b["text"], ch = postproc.respell(b["text"], variant, protect)
+            total.update(ch)
+        for seg in self.segments:  # keep the per-segment formats in step
+            if self._is_english(seg):
+                seg["text"], _ = postproc.respell(seg["text"], variant, protect)
+        for p in getattr(self, "shown_blocks", []) or []:
+            if self._is_english(p):
+                p["text"], _ = postproc.respell(p["text"], variant, protect)
+        name = spelling.NAMES[variant]
+        sm = 0
+        if self.summary and self.summary_view.b_edit.isChecked():
+            self.summary["text"] = self.summary_view.text()  # keep edits being made
+        if self.summary and self.summary.get("text") and self.summary.get("language") == "en":
+            self.summary["text"], ch = postproc.respell(self.summary["text"], variant, protect)
+            sm = sum(ch.values())
+            if sm:
+                self.summary["edited"] = True
+                self.summary_modified = True
+                self._show_summary()
+        if not english:
+            self.status_msg("This transcript has no English text, so nothing was changed.")
+            return
+        if total:
+            cur = self.editor.verticalScrollBar().value()
+            self.show_blocks(blocks)
+            self.editor.document().setModified(True)
+            self.editor.verticalScrollBar().setValue(cur)
+        n = sum(total.values())
+        line = (f"English spelling changed to {name} (Edit menu): {n} word{'s' if n != 1 else ''}"
+                + (f": {spelling.summary_line(total)}" if total else "") + (f"; {sm} in the AI summary" if sm else ""))
+        self.cleanup_log.append(line)
+        self.update_raw()
+        self.update_title()
+        self.status_msg(line if (total or sm) else f"The English text already follows {name} spelling.")
 
     def go_to_time(self):
         text, ok = QInputDialog.getText(self, "Go to Time", "Time (hh:mm:ss or mm:ss):")
@@ -1654,7 +2174,7 @@ class MainWindow(QMainWindow):
     # ================================================================== window state
     def update_title(self):
         name = os.path.basename(self.info["path"]) if self.info else ""
-        mod = "*" if self.editor.document().isModified() else ""
+        mod = "*" if self.editor.document().isModified() or self.summary_modified else ""
         pct = ""
         if self.job and self.job["info"]["duration"]:
             pct = f" [{min(100, int(self.job['done_s'] / self.job['info']['duration'] * 100))}%]"
@@ -1665,16 +2185,20 @@ class MainWindow(QMainWindow):
         has_text = bool(self.editor.toPlainText().strip())
         self.a_stop.setEnabled(running)
         self.a_go.setEnabled(not running)
-        for a in (self.a_export, self.a_copy_tr, self.a_save, self.a_save_as, self.a_apply_vocab):
+        for a in (self.a_export, self.a_copy_tr, self.a_save, self.a_save_as, self.a_apply_vocab, self.a_spelling):
             a.setEnabled(has_text and not running)
         self.a_props.setEnabled(bool(self.info))
         self.a_restart.setEnabled(bool(self.info) and not running)
         for a in (self.a_replay, self.a_prev_unsure, self.a_next_unsure):
             a.setEnabled(has_text)
         self.a_close.setEnabled(bool(self.info) and not running)
-        raw = self.tabs.currentIndex() == 1
+        raw = self.tabs.currentIndex() == 1 or (self.tabs.currentWidget() is self.summary_view and
+                                                not self.summary_view.b_edit.isChecked())
         for a in (self.a_cut, self.a_paste, self.a_undo, self.a_redo):
             a.setEnabled(not raw and not running)
+        on = bool(self.settings.get("summary.enabled"))
+        self.a_sum_go.setEnabled(on and has_text and not running and not self.sjob)
+        self.a_sum_stop.setEnabled(bool(self.sjob))
         mkey = self.settings.get("transcription.model")
         m = self.manager.find(mkey) if mkey != "auto" else None
         self.speed_menu.setEnabled(m is None or m.kind == "whisper")
@@ -1801,6 +2325,12 @@ class MainWindow(QMainWindow):
         system.journal_clear(self.settings)
 
     def closeEvent(self, e):
+        if self.sjob and not self.job:
+            if QMessageBox.question(self, APP_NAME, "An AI summary is being written. Stop it and close?") \
+                    != QMessageBox.Yes:
+                e.ignore()
+                return
+            self.sworker.cancel()
         if self.job:
             if QMessageBox.question(self, APP_NAME, "Stop the transcription and close?") != QMessageBox.Yes:
                 e.ignore()
@@ -1818,6 +2348,7 @@ class MainWindow(QMainWindow):
         if self.tray:
             self.tray.hide()
         self.worker.stop()
+        self.sworker.stop()
         e.accept()
 
 

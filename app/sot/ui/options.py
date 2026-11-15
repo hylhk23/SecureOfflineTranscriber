@@ -8,25 +8,33 @@ import os
 import shutil
 import threading
 
-from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtCore import QEvent, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox,
                                QDoubleSpinBox, QFileDialog, QFormLayout, QFrame, QGridLayout, QGroupBox,
                                QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QListWidget,
                                QMessageBox, QPlainTextEdit, QProgressBar, QProgressDialog, QPushButton,
-                               QScrollArea, QSpinBox, QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout,
-                               QWidget)
+                               QScrollArea, QSpinBox, QStyle, QTableWidget, QTableWidgetItem, QTabWidget,
+                               QVBoxLayout, QWidget)
 
-from .. import paths, system
+from .. import paths, spelling, system
 from ..exporters import FORMATS, base_name
 from ..modelmgr import KIND_LABEL, LANG_NAMES, copy_tree, free_disk, human_size
-from ..postproc import apply_replacements, convert_script, script_for
+from ..postproc import apply_replacements, automatic_spelling_text, convert_script, script_for
 from ..settings import DEFAULTS, GROUPS, Settings
 
 LANGS = [("auto", "Auto-detect"), ("en", "English"), ("fr", "French"), ("yue", "Cantonese"), ("zh", "Mandarin")]
 SCRIPTS = [("hk", "Traditional (Hong Kong)"), ("tw", "Traditional (Taiwan)"), ("cn", "Simplified")]
+
+
+def spelling_items():
+    """English spelling choices; Automatic says what it means on this computer."""
+    system.region_info(refresh=True)  # the user may have changed the country or region since the program started
+    return ([("auto", f"Automatic ({automatic_spelling_text()})")] +
+            [(v, f"{name} ({spelling.EXAMPLES[v]})") for v, name in spelling.VARIANTS] +
+            [("off", "As the model writes")])
 HOTWORD_LIMIT = 100  # about half of Whisper's 448-token prompt
-TABS = ["General", "Transcription", "Vocabulary", "Output", "Advanced"]
+TABS = ["General", "Transcription", "Vocabulary", "Output", "Advanced", "AI Summary"]
 
 
 def run_with_progress(parent, title, fn):
@@ -96,6 +104,66 @@ def button(text, slot, tip=""):
     return b
 
 
+# Warning text colour: at least 5.4:1 contrast on the light (#f0f0f0, white) and dark (#1e1e1e to #353535) window
+# backgrounds, also under protan and deutan simulation, so it stays readable with red/green colour weakness.
+# The meaning never rests on the colour alone: the text says it, in bold, next to a warning icon.
+WARN_LIGHT, WARN_DARK = "#b00020", "#ff9e9e"
+
+
+# Caution text colour (amber: "Update available", a hotword count near its limit): at least 5.2:1 on the same
+# backgrounds, also under protan and deutan simulation; the words say what it means.
+CAUTION_LIGHT, CAUTION_DARK = "#8a5000", "#ffb44a"
+
+
+def warn_colour(widget):
+    return WARN_DARK if widget.palette().color(QPalette.Window).lightness() < 128 else WARN_LIGHT
+
+
+def caution_colour(widget):
+    return CAUTION_DARK if widget.palette().color(QPalette.Window).lightness() < 128 else CAUTION_LIGHT
+
+
+def warn_html(widget, text):
+    return f"<span style='color:{warn_colour(widget)}; font-weight:bold'>{text}</span>"
+
+
+class OfflineNotice(QWidget):
+    """Shown on the Transcription and AI Summary tabs while Offline Mode is on: says why Download is greyed out
+    and how to allow it."""
+
+    def __init__(self, dlg, still_works):
+        super().__init__()
+        self.dlg = dlg
+        self.still_works = still_works
+        h = QHBoxLayout(self)
+        h.setContentsMargins(0, 4, 0, 4)
+        self.icon = QLabel()
+        self.icon.setPixmap(self.style().standardIcon(QStyle.SP_MessageBoxWarning).pixmap(20, 20))
+        self.text = QLabel()
+        self.text.setWordWrap(True)
+        self.text.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.button = button("Turn Offline Mode off", dlg.turn_offline_off,
+                             "Allow downloads now (the same as unticking Options > Offline Mode in the main window). "
+                             "The network is used only when you start a download.")
+        h.addWidget(self.icon, 0, Qt.AlignTop)
+        h.addWidget(self.text, 1)
+        h.addWidget(self.button, 0, Qt.AlignTop)
+        self.setVisible(False)
+
+    def changeEvent(self, ev):  # theme switched while the window is open: pick the colour for the new background
+        super().changeEvent(ev)
+        if ev.type() == QEvent.PaletteChange and not self.isHidden():
+            self.update_state()
+
+    def update_state(self):
+        off = bool(self.dlg.settings.get("advanced.offline"))
+        self.setVisible(off)
+        if off:
+            self.text.setText(warn_html(self, "Download is disabled because Offline Mode is on. To download models, "
+                                        "click Turn Offline Mode off, or untick Offline mode on the Advanced tab and "
+                                        f"press Apply. {self.still_works}"))
+
+
 def import_model_list(parent, mgr, path=None):
     """Import a model list file (Options > Transcription, or a file dropped on the window). True if used."""
     from .. import modellist
@@ -113,7 +181,9 @@ def import_model_list(parent, mgr, path=None):
         return False
     mgr.reload_list()
     mgr.scan()
-    lines = [f"Model list {data['list_version']} is now used ({len(data['models'])} models)."]
+    mgr.scan_llm()  # loading a list clears the summary-model scan; without this the AI Summary table comes up empty
+    lines = [f"Model list {data['list_version']} is now used ({len(data['models'])} speech models, "
+             f"{len(data.get('summary_models', []))} AI summary models)."]
     if added:
         lines.append("New: " + ", ".join(added))
     if changed:
@@ -148,7 +218,8 @@ class OptionsDialog(QDialog):
         self.vocab = VocabularyTab(self)
         self.output = OutputTab(self)
         self.advanced = AdvancedTab(self)
-        for w, name in zip((self.general, self.trans, self.vocab, self.output, self.advanced), TABS):
+        self.summary = SummaryTab(self)
+        for w, name in zip((self.general, self.trans, self.vocab, self.output, self.advanced, self.summary), TABS):
             sc = QScrollArea()
             sc.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # pages fit the width; tables scroll inside
             sc.setWidget(w)
@@ -175,7 +246,7 @@ class OptionsDialog(QDialog):
 
     # ------------------------------------------------------------ apply
     def collect(self):
-        for t in (self.general, self.trans, self.vocab, self.output, self.advanced):
+        for t in (self.general, self.trans, self.vocab, self.output, self.advanced, self.summary):
             t.collect(self.work)
 
     def validate(self):
@@ -190,6 +261,8 @@ class OptionsDialog(QDialog):
                 problems.append(f"{label}: {folder} cannot be written.")
         if not self.work.get("output.formats") and self.work.get("output.autosave") == "session+exports":
             problems.append("Output: tick at least one default export format, or set Auto-save to Session only.")
+        if self.work.get("summary.enabled") and not self.work.get("summary.sections"):
+            problems.append("AI Summary: tick at least one section.")
         return problems
 
     def apply(self):
@@ -210,7 +283,66 @@ class OptionsDialog(QDialog):
         self.applied.emit()
         self.output.refresh_bold()
         self.advanced.refresh_bold()
+        self.refresh_model_tabs()
         return True
+
+    def changeEvent(self, ev):  # theme switched while the window is open: warnings get the colour for it
+        super().changeEvent(ev)
+        if ev.type() == QEvent.PaletteChange and hasattr(self, "summary"):
+            QTimer.singleShot(0, self.refresh_model_tabs)  # after the tabs themselves have the new palette
+
+    # ------------------------------------------------------------ shared by the Transcription and AI Summary tabs
+    def refresh_model_tabs(self, rescan=False):
+        self.trans.refresh(rescan=rescan)
+        self.summary.refresh(rescan=rescan)
+
+    def turn_offline_off(self):
+        """Allow downloads at once, like the main window's Options > Offline Mode tick."""
+        self.settings.set("advanced.offline", False)
+        self.work.set("advanced.offline", False)
+        self.advanced.put("advanced.offline", False)
+        self.advanced.refresh_bold()
+        try:
+            self.settings.save()
+        except OSError as ex:
+            QMessageBox.warning(self, "Options", f"The settings could not be saved: {ex}")
+        self.refresh_model_tabs()
+
+    def import_model_list(self):
+        """One model list file holds the speech models and the AI summary models; importing it on either tab does
+        the same and both tabs show the result."""
+        if any(t.is_alive() for t, _, _ in self.manager.downloads.values()):
+            QMessageBox.warning(self, "Import model list", "Pause the running downloads first.")
+            return False
+        if import_model_list(self, self.manager):
+            self.refresh_model_tabs()
+            self.settings_changed_models = True
+            return True
+        return False
+
+    def use_builtin_list(self):
+        from .. import modellist
+        if QMessageBox.question(self, "Use built-in list", "Stop using the imported model list and go back to the "
+                                "list built into the program?\n\nInstalled models are kept.") != QMessageBox.Yes:
+            return
+        modellist.restore_builtin()
+        self.manager.reload_list()
+        self.refresh_model_tabs(rescan=True)
+        self.settings_changed_models = True
+
+    def list_text(self, what):
+        """(label, tooltip, problem html, imported?) for the model list row of a tab."""
+        from .. import modellist
+        li = self.manager.list_info
+        src = "built into the program" if li["source"] == "built-in" else "imported"
+        n = len(li["data"]["models"]) if what == "speech" else len(li["data"].get("summary_models", []))
+        label = (f"Model list <b>{li['data']['list_version']}</b> ({src}) \u00b7 {n} "
+                 f"{'models' if what == 'speech' else 'summary models'}")
+        tip = (f"{li['path']}\nOne model list file holds the speech models (Transcription tab) and the AI summary "
+               "models; importing it on either tab does the same.")
+        problem = warn_html(self, li["problem"]) if li["problem"] else ""
+        imported = li["source"] == "imported" or os.path.isfile(modellist.override_path())
+        return label, tip, problem, imported
 
     def ok(self):
         if self.apply():
@@ -252,7 +384,7 @@ class OptionsDialog(QDialog):
 
     def reload_tabs(self):
         idx = self.tabs.currentIndex()
-        for t in (self.general, self.trans, self.vocab, self.output, self.advanced):
+        for t in (self.general, self.trans, self.vocab, self.output, self.advanced, self.summary):
             t.load(self.work)
         self.tabs.setCurrentIndex(idx)
 
@@ -383,6 +515,13 @@ class TranscriptionTab(QWidget):
         self.threads.setToolTip("CPU threads for recognition. Reloads the model.")
         self.s_yue = combo(SCRIPTS)
         self.s_zh = combo(SCRIPTS)
+        self.spell = combo(spelling_items(), tip=(
+            "How English words are spelt in the transcript, its exports and the AI summary. Only spelling "
+            "changes (colour or color, organise or organize); vocabulary and grammar stay as spoken. Words whose "
+            "spelling depends on the meaning (practice or practise, licence or license, cheque or check) change "
+            "only where the sentence makes the meaning clear. Names and vocabulary terms are kept. "
+            "Automatic follows the country or region set in Windows (on a Mac: Region). "
+            "Edit > Change English Spelling changes a transcript that is already open."))
         top.addWidget(QLabel("Language:"), 0, 0)
         top.addWidget(self.lang, 0, 1)
         top.addWidget(QLabel("Model:"), 0, 2)
@@ -395,6 +534,8 @@ class TranscriptionTab(QWidget):
         top.addWidget(self.s_yue, 2, 1)
         top.addWidget(QLabel("Mandarin script:"), 2, 2)
         top.addWidget(self.s_zh, 2, 3)
+        top.addWidget(QLabel("English spelling:"), 3, 0)
+        top.addWidget(self.spell, 3, 1, 1, 3)
         top.setColumnStretch(3, 1)
         top.setColumnStretch(1, 1)
         v.addLayout(top)
@@ -451,13 +592,16 @@ class TranscriptionTab(QWidget):
         lrow.addStretch(1)
         lrow.addWidget(button("Import model list\u2026", self.import_list,
                               "Use a newer model list file (models.json) you were given: new or updated models "
-                              "appear below. Your installed models are kept."))
+                              "appear below and on the AI Summary tab. Your installed models are kept."))
         self.b_builtin = button("Use built-in list", self.builtin_list, "Go back to the list built into the program.")
         lrow.addWidget(self.b_builtin)
         gv.addLayout(lrow)
         self.list_problem = QLabel()
         self.list_problem.setWordWrap(True)
         gv.addWidget(self.list_problem)
+        self.offline_note = OfflineNotice(dlg, "Other model locations, Add model from folder, Import model list and "
+                                               "Import model pack still work.")
+        gv.addWidget(self.offline_note)
         rh = QHBoxLayout()
         self.rec_btn = button("Download recommended set", lambda: self.download_recommended())
         self.lang.currentIndexChanged.connect(self._update_rec_btn)  # Cantonese/Mandarin adds SenseVoiceSmall
@@ -488,8 +632,6 @@ class TranscriptionTab(QWidget):
                             "Put the selected installed models in one .zip for a PC without internet."))
         bh.addStretch(1)
         gv.addLayout(bh)
-        self.offline_note = QLabel()
-        gv.addWidget(self.offline_note)
         v.addWidget(g)
         self.rows = {}
         self._reset_order = False
@@ -505,6 +647,7 @@ class TranscriptionTab(QWidget):
         self.threads.setValue(int(s.get("transcription.threads")))
         self.s_yue.setCurrentIndex(max(0, self.s_yue.findData(s.get("transcription.script_yue"))))
         self.s_zh.setCurrentIndex(max(0, self.s_zh.findData(s.get("transcription.script_zh"))))
+        self.spell.setCurrentIndex(max(0, self.spell.findData(s.get("transcription.spelling_en"))))
         self.refresh(rescan=False)
 
     def collect(self, s):
@@ -514,6 +657,7 @@ class TranscriptionTab(QWidget):
         s.set("transcription.threads", self.threads.value())
         s.set("transcription.script_yue", self.s_yue.currentData())
         s.set("transcription.script_zh", self.s_zh.currentData())
+        s.set("transcription.spelling_en", self.spell.currentData())
         per = {}
         listed = self.mgr.listdata.get("automatic", {})
         for lang, cbs in self.per.items():
@@ -552,14 +696,12 @@ class TranscriptionTab(QWidget):
                 cb.setCurrentIndex(max(0, cb.findData(want)))
                 cb.blockSignals(False)
         self._reset_order = False
-        li = self.mgr.list_info
-        src = "built into the program" if li["source"] == "built-in" else "imported"
-        self.list_label.setText(f"Model list <b>{li['data']['list_version']}</b> ({src}) \u00b7 "
-                                f"{len(li['data']['models'])} models")
-        self.list_label.setToolTip(li["path"])
-        self.list_problem.setText(f"<span style='color:#c0392b'>{li['problem']}</span>" if li["problem"] else "")
-        self.list_problem.setVisible(bool(li["problem"]))
-        self.b_builtin.setEnabled(li["source"] == "imported" or os.path.isfile(self._override()))
+        label, tip, problem, imported = self.dlg.list_text("speech")
+        self.list_label.setText(label)
+        self.list_label.setToolTip(tip)
+        self.list_problem.setText(problem)
+        self.list_problem.setVisible(bool(problem))
+        self.b_builtin.setEnabled(imported)
         self.dl.setText(self.dlg.settings.download_folder())
         self.locs.clear()
         for loc in self.dlg.settings.locations():
@@ -594,7 +736,7 @@ class TranscriptionTab(QWidget):
                     it.setToolTip(", ".join(LANG_NAMES.get(x, x) for x in m.languages))
                 self.table.setItem(r, c, it)
             if m.status == "Update available":
-                self.table.item(r, 5).setForeground(QColor("#c07000"))
+                self.table.item(r, 5).setForeground(QColor(caution_colour(self.table)))
                 self.table.item(r, 5).setToolTip("A newer revision is in the model list; this one still works.")
             if m.status in ("Downloading", "Paused"):  # FR: progress bar in the Status cell
                 self.table.setCellWidget(r, 5, self._bar(m.progress, m.status))
@@ -633,8 +775,7 @@ class TranscriptionTab(QWidget):
         folder = self.dlg.settings.download_folder()
         self.disk.setText(f"Free on the download drive: {human_size(free_disk(folder))}")
         off = self.dlg.settings.get("advanced.offline")
-        self.offline_note.setText("<i>Offline Mode is on: Download is greyed out. Other model locations, Add model "
-                                  "from folder and Import still work.</i>" if off else "")
+        self.offline_note.update_state()
         self.rec_btn.setEnabled(not off)
 
     def _order(self, lang):
@@ -650,22 +791,10 @@ class TranscriptionTab(QWidget):
         self.refresh(rescan=False)
 
     def import_list(self):
-        if any(t.is_alive() for t, _, _ in self.mgr.downloads.values()):
-            QMessageBox.warning(self, "Import model list", "Pause the running downloads first.")
-            return
-        if import_model_list(self, self.mgr):
-            self.refresh(rescan=False)
-            self.dlg.settings_changed_models = True
+        self.dlg.import_model_list()
 
     def builtin_list(self):
-        from .. import modellist
-        if QMessageBox.question(self, "Use built-in list", "Stop using the imported model list and go back to the "
-                                "list built into the program?\n\nInstalled models are kept.") != QMessageBox.Yes:
-            return
-        modellist.restore_builtin()
-        self.mgr.reload_list()
-        self.refresh()
-        self.dlg.settings_changed_models = True
+        self.dlg.use_builtin_list()
 
     def _bar(self, frac, status="Downloading"):
         bar = QProgressBar()
@@ -684,7 +813,10 @@ class TranscriptionTab(QWidget):
     def tick(self):
         busy = False
         changed = False
+        llm_ids = {e["id"] for e in self.mgr.llm_catalog}
         for cid, (t, stop, state) in list(self.mgr.downloads.items()):
+            if cid in llm_ids:
+                continue  # AI Summary tab
             r = self.rows.get(cid)
             if t.is_alive():
                 busy = True
@@ -1004,7 +1136,7 @@ class VocabularyTab(QWidget):
     def count_hot(self):
         words = " ".join(self.hot.toPlainText().split()).split()
         n = len(words)
-        color = "#c07000" if n > HOTWORD_LIMIT * 0.9 else "palette(text)"
+        color = caution_colour(self) if n > HOTWORD_LIMIT * 0.9 else "palette(text)"
         msg = f"{n} of about {HOTWORD_LIMIT} words"
         if n > HOTWORD_LIMIT:
             msg += " - cut: " + " ".join(words[HOTWORD_LIMIT:])[:200]
@@ -1543,3 +1675,380 @@ class AdvancedTab(QWidget):
 
     def first_run(self):
         self.dlg.show_first_run.emit()
+
+
+# ====================================================================== AI Summary (version 2.3.0)
+SUMMARY_LANGS = [("same", "Same as the transcript"), ("en", "English"), ("fr", "French"),
+                 ("zh-hant", "Traditional Chinese"), ("zh-hans", "Simplified Chinese")]
+SUMMARY_LENGTHS = [("brief", "Brief"), ("standard", "Standard"), ("detailed", "Detailed")]
+SUMMARY_SECTIONS = [("overview", "Summary paragraph"), ("key_points", "Key points"), ("decisions", "Decisions"),
+                    ("actions", "Action items"), ("questions", "Open questions")]
+SUMMARY_CONTEXTS = [(0, "Automatic"), (4096, "4,096 tokens"), (8192, "8,192 tokens"), (16384, "16,384 tokens"),
+                    (32768, "32,768 tokens")]
+
+
+class SummaryTab(QWidget):
+    """Options > AI Summary: turn the feature on, choose how summaries are written, and manage the language
+    models (download, pause, delete). Models act at once; the settings on OK or Apply."""
+    COLS = ["Model", "Size", "Licence", "Status", ""]
+
+    def __init__(self, dlg):
+        super().__init__()
+        self.dlg = dlg
+        self.mgr = dlg.manager
+        v = QVBoxLayout(self)
+        intro = QLabel("An AI summary (summary, key points, decisions, action items and open questions) is written by "
+                       "a small language model <b>on this computer</b> after the transcript is complete. It appears in "
+                       "an <b>AI summary</b> tab next to Transcript and Raw output. Nothing leaves the computer; the "
+                       "only network use is the model download you start below.")
+        intro.setWordWrap(True)
+        v.addWidget(intro)
+        g = QGroupBox("AI summary")
+        f = QFormLayout(g)
+        self.enabled = check("Use AI summary (adds the AI summary tab)", False,
+                             "Off: no summary is written and the tab is hidden. The transcript works the same either way.")
+        self.auto = check("Write the summary automatically when a transcript is complete", True,
+                          "Off: press Write summary in the tab (or Transcribe > Write AI Summary, Ctrl+M) when you want one.")
+        self.save_file = check("Save the summary with the transcript (name_summary.md) when auto-save is on", True,
+                               "The summary is also kept in the transcript session (.sot.json) either way.")
+        f.addRow("", self.enabled)
+        f.addRow("", self.auto)
+        f.addRow("", self.save_file)
+        v.addWidget(g)
+
+        g = QGroupBox("How summaries are written")
+        f = QFormLayout(g)
+        self.model = QComboBox()
+        self.model.setToolTip("Automatic: Qwen3-4B-Instruct-2507 on a PC with 12 GB of memory or more, otherwise "
+                              "Qwen3-1.7B; if that one is not installed, the next installed model.")
+        f.addRow("Model:", self.model)
+        self.language = combo(SUMMARY_LANGS, tip="Same as the transcript: English and French stay so; Cantonese and "
+                              "Mandarin are summarised in written Chinese, in the script chosen in Options > Transcription.")
+        f.addRow("Summary language:", self.language)
+        self.length = combo(SUMMARY_LENGTHS, tip="Brief: 2-3 sentences and up to 5 points per section. Standard: a "
+                            "paragraph and up to 8. Detailed: two paragraphs and up to 15.")
+        f.addRow("Length:", self.length)
+        sw = QWidget()
+        sh = QHBoxLayout(sw)
+        sh.setContentsMargins(0, 0, 0, 0)
+        self.sections = {}
+        for key, label in SUMMARY_SECTIONS:
+            cb = QCheckBox(label)
+            self.sections[key] = cb
+            sh.addWidget(cb)
+        sh.addStretch(1)
+        f.addRow("Sections:", sw)
+        self.times = check("Add the time of each point, e.g. [00:12:40] (click it in the tab to hear that part)", True)
+        f.addRow("", self.times)
+        self.instructions = QPlainTextEdit()
+        self.instructions.setPlaceholderText("Optional, in any language, for example: Use British spelling. Our "
+                                             "company is Northwind; the client is Brightwater Labs.")
+        self.instructions.setMaximumHeight(64)
+        self.instructions.setToolTip("Added to the request to the model. Names and spellings help most.")
+        f.addRow("Extra instructions:", self.instructions)
+        v.addWidget(g)
+
+        g = QGroupBox("Language model settings")
+        grid = QGridLayout(g)
+        self.temperature = QDoubleSpinBox()
+        self.temperature.setRange(0.0, 1.5)
+        self.temperature.setSingleStep(0.1)
+        self.temperature.setDecimals(1)
+        self.temperature.setToolTip("0.0-0.3 sticks closely to the transcript (recommended); higher is freer and "
+                                    "more likely to add things that were not said.")
+        self.context = combo([(k, t) for k, t in SUMMARY_CONTEXTS],
+                             tip="How much text the model reads at once. Automatic: 8,192 tokens below 12 GB of "
+                                 "memory, else 16,384 (about 45 minutes and 90 minutes of speech). Longer meetings are "
+                                 "read in parts. Larger needs more memory.")
+        self.max_tokens = QSpinBox()
+        self.max_tokens.setRange(0, 4096)
+        self.max_tokens.setSingleStep(128)
+        self.max_tokens.setSpecialValueText("Follow Length")
+        self.max_tokens.setToolTip("Longest summary the model may write, in tokens (a token is about 3/4 of an "
+                                   "English word or one Chinese character).")
+        self.threads = QSpinBox()
+        self.threads.setRange(0, 32)
+        self.threads.setSpecialValueText("Auto (all cores)")
+        self.keep_loaded = check("Keep the model loaded between summaries", False,
+                                 "Faster when you summarise many files; the model's memory stays in use.")
+        self.background = check("Background priority while summarising", False,
+                                "Lets you keep working; the summary takes longer.")
+        self.gpu = check("Use the graphics chip (Mac)", True,
+                         "On a Mac with Apple silicon, the model runs on the graphics chip (Metal) when it and its "
+                         "context fit in the memory macOS lets the graphics chip use; otherwise on the processor. "
+                         "Raw output says when the processor was used and why. Untick it if summaries fail on this "
+                         "Mac." if system.IS_MAC else
+                         "Mac only. On Windows the model always runs on the processor.")
+        grid.addWidget(QLabel("Temperature:"), 0, 0)
+        grid.addWidget(self.temperature, 0, 1)
+        grid.addWidget(QLabel("Context size:"), 0, 2)
+        grid.addWidget(self.context, 0, 3)
+        grid.addWidget(QLabel("Longest summary:"), 1, 0)
+        grid.addWidget(self.max_tokens, 1, 1)
+        grid.addWidget(QLabel("CPU threads:"), 1, 2)
+        grid.addWidget(self.threads, 1, 3)
+        grid.addWidget(self.keep_loaded, 2, 0, 1, 2)
+        grid.addWidget(self.background, 2, 2, 1, 2)
+        grid.addWidget(self.gpu, 3, 0, 1, 4)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(3, 1)
+        v.addWidget(g)
+
+        g = QGroupBox("Summary models")
+        gv = QVBoxLayout(g)
+        lrow = QHBoxLayout()
+        self.list_label = QLabel()
+        lrow.addWidget(self.list_label)
+        lrow.addStretch(1)
+        lrow.addWidget(button("Import model list\u2026", dlg.import_model_list,
+                              "Use a newer model list file (models.json) you were given: new or updated summary models "
+                              "appear below, and speech models on the Transcription tab. Your installed models are "
+                              "kept. A model of a new chat format needs a new program version."))
+        self.b_builtin = button("Use built-in list", dlg.use_builtin_list, "Go back to the list built into the program.")
+        lrow.addWidget(self.b_builtin)
+        gv.addLayout(lrow)
+        self.list_problem = QLabel()
+        self.list_problem.setWordWrap(True)
+        self.list_problem.setVisible(False)
+        gv.addWidget(self.list_problem)
+        self.offline_note = OfflineNotice(dlg, "Import model list still works.")
+        gv.addWidget(self.offline_note)
+        self.runtime_label = QLabel()
+        self.runtime_label.setWordWrap(True)
+        gv.addWidget(self.runtime_label)
+        rh = QHBoxLayout()
+        self.rec_btn = button("Download recommended model", self.download_recommended)
+        rh.addWidget(self.rec_btn)
+        rh.addStretch(1)
+        self.disk = QLabel()
+        rh.addWidget(self.disk)
+        gv.addLayout(rh)
+        self.table = QTableWidget(0, len(self.COLS))
+        self.table.setHorizontalHeaderLabels(self.COLS)
+        self.table.verticalHeader().hide()
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setWordWrap(False)
+        hh = self.table.horizontalHeader()
+        for c in range(len(self.COLS)):
+            hh.setSectionResizeMode(c, QHeaderView.ResizeToContents)
+        hh.setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table.setMinimumHeight(215)
+        gv.addWidget(self.table)
+        note = QLabel("<i>The models summarise English, French, Cantonese and Mandarin transcripts (Cantonese and "
+                      "Mandarin in written Chinese). Small models can get details wrong: check the summary against "
+                      "the transcript.</i>")
+        note.setWordWrap(True)
+        gv.addWidget(note)
+        v.addWidget(g)
+        v.addStretch(1)
+        self.rows = {}
+        self.enabled.toggled.connect(self._enable_widgets)
+        self.load(dlg.work)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.tick)
+        self.timer.start(500)
+
+    # ------------------------------------------------------------ load / collect
+    def load(self, s):
+        self.enabled.setChecked(bool(s.get("summary.enabled")))
+        self.auto.setChecked(bool(s.get("summary.auto")))
+        self.save_file.setChecked(bool(s.get("summary.save_file")))
+        self.language.setCurrentIndex(max(0, self.language.findData(s.get("summary.language"))))
+        self.length.setCurrentIndex(max(0, self.length.findData(s.get("summary.length"))))
+        for k, cb in self.sections.items():
+            cb.setChecked(k in (s.get("summary.sections") or []))
+        self.times.setChecked(bool(s.get("summary.times")))
+        self.instructions.setPlainText(s.get("summary.instructions") or "")
+        self.temperature.setValue(float(s.get("summary.temperature")))
+        self.context.setCurrentIndex(max(0, self.context.findData(int(s.get("summary.context")))))
+        self.max_tokens.setValue(int(s.get("summary.max_tokens")))
+        self.threads.setValue(int(s.get("summary.threads")))
+        self.keep_loaded.setChecked(bool(s.get("summary.keep_loaded")))
+        self.background.setChecked(bool(s.get("summary.background")))
+        self.gpu.setChecked(bool(s.get("summary.gpu")))
+        self._wanted_model = s.get("summary.model")
+        self.refresh()
+        self._enable_widgets(self.enabled.isChecked())
+
+    def collect(self, s):
+        s.set("summary.enabled", self.enabled.isChecked())
+        s.set("summary.auto", self.auto.isChecked())
+        s.set("summary.save_file", self.save_file.isChecked())
+        s.set("summary.model", self.model.currentData() or "auto")
+        s.set("summary.language", self.language.currentData())
+        s.set("summary.length", self.length.currentData())
+        s.set("summary.sections", [k for k, _ in SUMMARY_SECTIONS if self.sections[k].isChecked()])
+        s.set("summary.times", self.times.isChecked())
+        s.set("summary.instructions", self.instructions.toPlainText().strip())
+        s.set("summary.temperature", round(self.temperature.value(), 1))
+        s.set("summary.context", int(self.context.currentData()))
+        s.set("summary.max_tokens", self.max_tokens.value())
+        s.set("summary.threads", self.threads.value())
+        s.set("summary.keep_loaded", self.keep_loaded.isChecked())
+        s.set("summary.background", self.background.isChecked())
+        s.set("summary.gpu", self.gpu.isChecked())
+
+    def _enable_widgets(self, on):
+        for w in (self.auto, self.save_file, self.model, self.language, self.length, self.times, self.instructions,
+                  self.temperature, self.context, self.max_tokens, self.threads, self.keep_loaded, self.background,
+                  *self.sections.values()):
+            w.setEnabled(on)
+        self.gpu.setEnabled(on and system.IS_MAC)  # Windows: always the processor
+
+    # ------------------------------------------------------------ models
+    def refresh(self, rescan=True):
+        from .. import llm
+        if rescan:
+            self.mgr.scan_llm()
+        cur = self.model.currentData() if self.model.count() else getattr(self, "_wanted_model", "auto")
+        self.model.clear()
+        auto = self.mgr.llm_choice("auto")
+        self.model.addItem("Automatic" + (f" ({auto.name})" if auto else " (none installed yet)"), "auto")
+        for m in self.mgr.llm_installed():
+            self.model.addItem(m.name, m.key)
+        if cur not in ("auto", None) and self.model.findData(cur) < 0 and cur in self.mgr.llm_models:
+            self.model.addItem(f"{self.mgr.llm_models[cur].name} (not installed)", cur)
+        self.model.setCurrentIndex(max(0, self.model.findData(cur)))
+        ok, d = llm.available()
+        self.runtime_label.setText(
+            (f"Engine: llama.cpp {llm.LLAMA_BUILD} (CPU), in {d}." if ok else
+             warn_html(self, f"{d} Unzip the program again to use the AI summary.")))
+        rec = self.mgr.recommended_llm()
+        total = ram_gb_text()
+        if rec:
+            e = self.mgr.by_id[rec[0]]
+            self.rec_btn.setText(f"Download recommended model for this PC: {e['name']} ({human_size(e['size'])})")
+            sr = self.mgr.listdata.get("summary_recommended") or {}
+            names = lambda k: ", ".join(self.mgr.by_id[i]["name"] for i in sr.get(k, []) if i in self.mgr.by_id)
+            self.rec_btn.setToolTip(f"This PC has {total} of memory. The model list recommends {names('at_or_above')} "
+                                    f"from {sr.get('ram_gb', 12)} GB, {names('below')} below.")
+        self.rec_btn.setVisible(bool(rec))
+        label, tip, problem, imported = self.dlg.list_text("summary")
+        self.list_label.setText(label)
+        self.list_label.setToolTip(tip)
+        self.list_problem.setText(problem)
+        self.list_problem.setVisible(bool(problem))
+        self.b_builtin.setEnabled(imported)
+        self.build_table()
+
+    def build_table(self):
+        mdl = [self.mgr.llm_models[e["id"]] for e in self.mgr.llm_catalog if e["id"] in self.mgr.llm_models]
+        self.table.setRowCount(len(mdl))
+        self.rows = {}
+        off = self.dlg.settings.get("advanced.offline")
+        for r, m in enumerate(mdl):
+            e = m.entry or {}
+            vals = [m.name, human_size(e.get("size", 0)), e.get("license", ""), m.status]
+            for c, t in enumerate(vals):
+                it = QTableWidgetItem(t)
+                it.setData(Qt.UserRole, m.key)
+                if c == 0:
+                    it.setToolTip(f"{e.get('note', '')}\nFile: {e['files'][0]['name']} from huggingface.co/{e['repo']}")
+                if c == 2 and e.get("license_url"):
+                    it.setToolTip(e["license_url"])
+                self.table.setItem(r, c, it)
+            if m.status == "Update available":
+                self.table.item(r, 3).setForeground(QColor(caution_colour(self.table)))
+            if m.status in ("Downloading", "Paused"):
+                self.table.setCellWidget(r, 3, self._bar(m.progress, m.status))
+            w = QWidget()
+            h = QHBoxLayout(w)
+            h.setContentsMargins(2, 0, 2, 0)
+            h.setSpacing(2)
+            b_dl = QPushButton("Resume" if m.status == "Paused" else "Update" if m.status == "Update available"
+                               else "Download")
+            b_dl.clicked.connect(lambda _=False, k=m.key: self.download(k))
+            b_dl.setEnabled(m.status in ("Not installed", "Paused", "Damaged", "Update available") and not off)
+            b_pause = QPushButton("Pause")
+            b_pause.clicked.connect(lambda _=False, k=m.key: self.mgr.pause_download(k))
+            b_pause.setEnabled(m.status == "Downloading")
+            b_del = QPushButton("Delete")
+            b_del.clicked.connect(lambda _=False, k=m.key: self.delete(k))
+            b_del.setEnabled(m.status in ("Installed", "Update available", "Paused", "Damaged"))
+            for b in (b_dl, b_pause, b_del):
+                b.setStyleSheet("padding: 1px 6px;")
+                h.addWidget(b)
+            self.table.setCellWidget(r, 4, w)
+            self.rows[m.key] = r
+        self.table.resizeRowsToContents()
+        self.disk.setText(f"Free on the download drive: {human_size(free_disk(self.dlg.settings.download_folder()))}")
+        self.offline_note.update_state()
+        self.rec_btn.setEnabled(not off)
+
+    def _bar(self, frac, status="Downloading"):
+        bar = QProgressBar()
+        bar.setRange(0, 1000)
+        bar.setValue(int(frac * 1000))
+        bar.setFormat(f"{status} {frac:.0%}")
+        bar.setTextVisible(True)
+        return bar
+
+    def tick(self):
+        changed = False
+        ids = {e["id"] for e in self.mgr.llm_catalog}
+        for cid, (t, stop, state) in list(self.mgr.downloads.items()):
+            if cid not in ids:
+                continue
+            r = self.rows.get(cid)
+            if t.is_alive():
+                if r is not None:
+                    pct = state["done"] / state["total"] if state["total"] else 0
+                    bar = self.table.cellWidget(r, 3)
+                    if bar is None:
+                        self.table.setCellWidget(r, 3, self._bar(pct))
+                    else:
+                        bar.setValue(int(pct * 1000))
+                        bar.setFormat(f"Downloading {pct:.0%}")
+            elif not state.get("reported"):
+                state["reported"] = True
+                changed = True
+                if state.get("error"):
+                    QMessageBox.warning(self, "Download", f"{self.mgr.by_id[cid]['name']}: {state['error']}")
+        if changed:
+            self.refresh()
+
+    def download(self, cid):
+        e = self.mgr.by_id[cid]
+        dest = self.mgr.folder_for(e)
+        text = (f"<b>{e['name']}</b> - language model for the AI summary<br><br>"
+                f"Source: huggingface.co/{e['repo']} (revision {e['revision'][:10]})<br>"
+                f"File: {e['files'][0]['name']}<br>Size: {human_size(e['size'])}<br>"
+                f"Licence: <a href='{e.get('license_url', '')}'>{e['license']}</a><br>"
+                f"Destination: {dest}<br><br>The file is checked by SHA-256. Download now?")
+        box = QMessageBox(QMessageBox.Question, "Download model", text, QMessageBox.Yes | QMessageBox.No, self)
+        box.setTextFormat(Qt.RichText)
+        if box.exec() != QMessageBox.Yes:
+            return
+        try:
+            self.mgr.start_download(cid)
+        except Exception as ex:
+            QMessageBox.warning(self, "Download", str(ex))
+            return
+        self.refresh(rescan=True)
+
+    def download_recommended(self):
+        rec = [c for c in self.mgr.recommended_llm() if not (self.mgr.llm_models.get(c) and
+                                                              self.mgr.llm_models[c].installed)]
+        if not rec:
+            QMessageBox.information(self, "Summary models", "The recommended model is already installed.")
+            return
+        self.download(rec[0])
+
+    def delete(self, key):
+        m = self.mgr.llm_models.get(key)
+        if not m or QMessageBox.question(self, "Delete model", f"Delete {m.name} from\n{m.folder}?") != QMessageBox.Yes:
+            return
+        self.mgr.pause_download(key)
+        if hasattr(self.dlg.parent(), "sworker"):
+            self.dlg.parent().sworker.unload()  # Windows cannot delete a file that is loaded
+        try:
+            self.mgr.delete(m)
+        except Exception as ex:
+            QMessageBox.warning(self, "Delete model", str(ex))
+        self.refresh()
+
+
+def ram_gb_text():
+    from ..modelmgr import ram_gb
+    return f"{ram_gb()[0]:.0f} GB"

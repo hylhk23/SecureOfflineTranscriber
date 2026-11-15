@@ -1,8 +1,8 @@
-"""Secure Offline Transcriber - offline speech-to-text for Windows."""
+"""Secure Offline Transcriber - offline speech-to-text for Windows and macOS."""
 
 APP_NAME = "Secure Offline Transcriber"
 APP_ID = "SecureOfflineTranscriber"
-VERSION = "2.2.1"
+VERSION = "2.3.1"
 PUBLISHER = "Neo Time Consulting"
 WEBSITE = "https://software.4u.hk"
 COPYRIGHT_YEAR = "2026"

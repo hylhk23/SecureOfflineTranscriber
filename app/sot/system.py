@@ -1,5 +1,5 @@
 """Windows integration and diagnostics: environment and privacy checks, keep-awake,
-'Open with' registration, job journal."""
+'Open with' registration, country or region, job journal."""
 import json
 import os
 import platform
@@ -193,7 +193,8 @@ def privacy_report(settings):
         f"Temp folder: {tmp} - " + ("empty" if not tmp_files else f"{len(tmp_files)} file(s); Clear temp now removes them"),
         "Listening network ports: " + ("none" if ports == [] else "unknown" if ports is None
                                        else ", ".join(ports)),
-        "Audio and transcripts never leave this PC. Logs hold file names and timings, never transcript text.",
+        "Audio, transcripts and AI summaries never leave this computer. Logs hold file names and timings, never "
+        "transcript text.",
     ]
     return "\n".join(lines)
 
@@ -289,6 +290,97 @@ def _notify_shell():
         ctypes.windll.shell32.SHChangeNotify(0x08000000, 0, None, None)
     except Exception:
         pass
+
+
+# ------------------------------------------------------------------ country or region (English spelling)
+_region = {}
+
+
+def _win_country():
+    """Windows Settings > Time & language > Language & region > Country or region, as ISO 3166-1 alpha-2."""
+    import ctypes
+    from ctypes import wintypes
+    k = ctypes.windll.kernel32
+    buf = ctypes.create_unicode_buffer(16)
+    try:  # Windows 10 1709 and later
+        k.GetUserDefaultGeoName.argtypes = [wintypes.LPWSTR, ctypes.c_int]
+        k.GetUserDefaultGeoName.restype = ctypes.c_int
+        if k.GetUserDefaultGeoName(buf, 16) and len(buf.value) == 2 and buf.value.isalpha():
+            return buf.value.upper()
+    except AttributeError:
+        pass
+    k.GetUserGeoID.argtypes = [wintypes.DWORD]
+    k.GetUserGeoID.restype = ctypes.c_long
+    geo = k.GetUserGeoID(16)  # GEOCLASS_NATION
+    if geo == -1:             # GEOID_NOT_AVAILABLE
+        return None
+    k.GetGeoInfoW.argtypes = [ctypes.c_long, wintypes.DWORD, wintypes.LPWSTR, ctypes.c_int, wintypes.WORD]
+    k.GetGeoInfoW.restype = ctypes.c_int
+    if k.GetGeoInfoW(geo, 4, buf, 16, 0) and len(buf.value) == 2:  # GEO_ISO2
+        return buf.value.upper()
+    return None
+
+
+def _mac_country():
+    """System Settings > General > Language & Region > Region, from CoreFoundation's current locale."""
+    import ctypes
+    cf = ctypes.CDLL("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
+    cf.CFLocaleCopyCurrent.restype = ctypes.c_void_p
+    cf.CFLocaleGetValue.restype = ctypes.c_void_p
+    cf.CFLocaleGetValue.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    cf.CFStringGetCString.restype = ctypes.c_bool
+    cf.CFStringGetCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_long, ctypes.c_uint32]
+    cf.CFRelease.argtypes = [ctypes.c_void_p]
+    key = ctypes.c_void_p.in_dll(cf, "kCFLocaleCountryCode")
+    loc = cf.CFLocaleCopyCurrent()
+    try:
+        val = cf.CFLocaleGetValue(loc, key)
+        buf = ctypes.create_string_buffer(16)
+        if val and cf.CFStringGetCString(val, buf, 16, 0x08000100):  # kCFStringEncodingUTF8
+            code = buf.value.decode("ascii", "ignore")
+            return code.upper() if len(code) == 2 and code.isalpha() else None
+    finally:
+        cf.CFRelease(loc)
+    return None
+
+
+def region_info(refresh=False):
+    """The computer's country or region and regional format, for the English spelling's Automatic setting:
+    {'country': 'CA' or None, 'country_source': 'Windows country or region' / 'macOS Region',
+     'format_lang': 'en', 'format_country': 'CA', 'format_name': 'en_CA'}. Read once, then cached."""
+    if _region and not refresh:
+        return dict(_region)
+    info = {"country": None, "country_source": "", "format_lang": None, "format_country": None, "format_name": ""}
+    try:
+        if IS_WIN:
+            info["country"], info["country_source"] = _win_country(), "Windows country or region"
+        elif IS_MAC:
+            info["country"], info["country_source"] = _mac_country(), "macOS Region"
+    except Exception as e:  # never stop the program over this
+        info["country"] = None
+        info["error"] = str(e)
+    try:
+        from PySide6.QtCore import QLocale
+        name = QLocale.system().name()          # for example en_GB: the regional format
+        lang, _, terr = name.partition("_")
+        info.update(format_lang=lang or None, format_country=terr.upper() or None, format_name=name)
+    except Exception:
+        pass
+    _region.clear()
+    _region.update(info)
+    return dict(info)
+
+
+def country_name(code):
+    """'Canada' for 'CA' (in English), or the code itself."""
+    try:
+        from PySide6.QtCore import QLocale
+        t = QLocale.codeToTerritory(code)
+        if t != QLocale.AnyTerritory:
+            return QLocale.territoryToString(t)
+    except Exception:
+        pass
+    return code or ""
 
 
 # ------------------------------------------------------------------ job journal

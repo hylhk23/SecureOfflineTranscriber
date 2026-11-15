@@ -1,10 +1,39 @@
-Secure Offline Transcriber 2.2.1 - portable edition for macOS (Apple silicon)
+Secure Offline Transcriber 2.3.1 - portable edition for macOS (Apple silicon)
 ================================================================================
 
 Offline speech-to-text: time-stamped transcripts from recorded audio and video files
 (WAV, MP3, M4A, MP4, MKV and more), processed entirely on this Mac. English, French,
 Cantonese and Mandarin. No installation, no account, no internet needed after a model
-is downloaded. Same program, menus and settings as the Windows edition.
+is downloaded. Optional AI summary of each transcript, also written on this Mac.
+Same program, version, menus and settings as the Windows edition.
+
+WHAT'S NEW IN 2.3.1
+-------------------
+- AI summary (optional, off until you turn it on in Options > AI Summary): when a
+  transcript is complete, a small language model on this Mac writes a summary, key points,
+  decisions, action items and open questions, each with the time it was discussed. It
+  appears in an AI summary tab next to Transcript and Raw output; you can keep reading and
+  playing the transcript while it is written. Check summaries against the transcript:
+  small language models can get details wrong. Click a time in the summary to hear it.
+- Six summary models to download in Options > AI Summary: Qwen3-1.7B, Qwen3-4B-Instruct-2507,
+  Qwen3.5-2B, Qwen3.5-4B, Gemma 4 E2B and Gemma 4 E4B (1.8 to 5.0 GB; Apache 2.0 licence).
+  The summary engine is llama.cpp (folder llamacpp): libraries only, no new program. The
+  model runs on the Mac's graphics chip (Metal) when it fits in the memory macOS lets the
+  graphics chip use, otherwise on the processor; Options > AI Summary > "Use the graphics
+  chip (Mac)" turns this off.
+- English spelling for your country: American (color, organize), British (colour,
+  organise), Canadian (colour, organize), Australian or Hong Kong (both colour, organise).
+  Options > Transcription > English spelling. Automatic, the default, follows the Region
+  set in System Settings > General > Language & Region. The transcript, its exports and
+  the AI summary follow it; names and your vocabulary terms are kept. Edit > Change English
+  Spelling changes a transcript that is already open.
+- Options > Transcription and Options > AI Summary have Import model list and Use built-in
+  list: one model list file holds both kinds of model.
+- With Offline Mode on, the Transcription and AI Summary tabs say in red why downloading
+  is not possible and offer a "Turn Offline Mode off" button.
+- Fixed: the amber text for "Update available" and for a hotword count near its limit was
+  hard to read; it is now clear in light and dark themes.
+- Windows and macOS now have the same version number and the same features.
 
 WHAT'S NEW IN 2.2.1
 -------------------
@@ -87,7 +116,8 @@ verify-files.command  check every file against SHA256SUMS.txt after unzipping
 app/                  the program (Python source code, readable) and docs/HELP.html
 python/               Python 3.13 for macOS (python-build-standalone, relocatable)
 ffmpeg/ffmpeg         reads audio and video files (FFmpeg 9.0, unmodified)
-models/               downloaded speech models (none are included)
+llamacpp/             AI summary engine (llama.cpp libraries, unmodified; see SOURCE.txt)
+models/               downloaded speech and summary models (none are included)
 data/                 settings, logs (kept 7 days), temporary files
 LICENSE.txt, THIRD-PARTY-LICENSES.txt, SHA256SUMS.txt
 
@@ -100,13 +130,25 @@ This package contains two programs:
                           package on PyPI (see ffmpeg/SOURCE.txt)
 Both, and every library file, are signed ad hoc (as Apple silicon requires) but not
 notarized by Apple, which is why macOS asks before running them. Everything else is
-Python code and libraries. To check the files: double-click verify-files.command.
+Python code and libraries, including the AI summary engine in llamacpp/ (llama.cpp's
+official macOS libraries, unmodified, with their own signatures). To check the files:
+double-click verify-files.command.
 
 PRIVACY
 -------
-Audio and transcripts never leave this Mac. There is no telemetry, analytics or update
-server. The network is used only when you start a model download; Options > Offline Mode
-blocks even that. Options > Advanced > Privacy check shows the details.
+Audio, transcripts and AI summaries never leave this Mac. There is no telemetry,
+analytics or update server. The network is used only when you start a model download;
+Options > Offline Mode blocks even that. Options > Advanced > Privacy check shows the
+details. llama.cpp's libraries include its network component (libggml-rpc), because its
+other libraries link to it; it connects only to a server address it is given, and this
+program never gives it one.
+
+NEW MODELS
+----------
+The models offered for download come from a model list file (models.json). If you are sent
+a newer one, choose Options > Transcription (or AI Summary) > Import model list... (or drop
+it on the window). New models appear in the list and models you have show "Update
+available" when a newer version is listed. Your installed models keep working.
 
 MOVING TO ANOTHER MAC
 ---------------------

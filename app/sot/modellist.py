@@ -5,7 +5,8 @@ Options > Transcription > Import model list... checks it and saves it as data\\m
 instead of the built-in one (until the program itself brings a newer built-in list).
 
 A list can add, update or remove models of the four kinds this program can run (Whisper, SenseVoiceSmall,
-Parakeet, Moonshine). A model of a new kind needs a new program version. Downloads always come from
+Parakeet, Moonshine), and (version 2.3.0) language models for the AI summary in "summary_models": one GGUF file
+each, of a chat format the program knows (FAMILIES). A model of a new kind or format needs a new program version. Downloads always come from
 huggingface.co at a fixed revision and every file is checked by SHA-256, so a list file cannot make the
 program fetch anything else."""
 import copy
@@ -18,6 +19,7 @@ from . import APP_ID, VERSION, paths
 
 FORMAT = 2
 KINDS = ("whisper", "sensevoice", "parakeet", "moonshine")
+LLM_FAMILIES = ("qwen3", "qwen3-instruct", "qwen3.5", "gemma4")  # chat formats in sot.summary.FAMILIES
 LANGS = ("en", "fr", "yue", "zh")
 PRIORITIES = ("Must", "Should", "Could")
 BUILTIN = os.path.join(paths.APP_DIR, "models.json")
@@ -148,9 +150,76 @@ def validate(data):
         for lang in LANGS:
             if lang not in auto:
                 warn.append(f"automatic: no order for {lang}; the smallest suitable installed model will be used.")
+    _validate_summary(out, ids, err)
     if err:
         raise ListError("\n".join(err))
     return out, warn
+
+
+def _validate_summary(out, ids, err):
+    """Optional (2.3.0): language models for the AI summary. Same download rules as the speech models."""
+    sm = out.get("summary_models", [])
+    if not isinstance(sm, list):
+        err.append("summary_models must be a list.")
+        return
+    sids = set()
+    for i, m in enumerate(sm, 1):
+        where = f"summary model {i} ({m.get('id', '?')})" if isinstance(m, dict) else f"summary model {i}"
+        if not isinstance(m, dict):
+            err.append(f"{where}: not an object.")
+            continue
+        mid = m.get("id", "")
+        if not SAFE_ID.match(str(mid)):
+            err.append(f"{where}: id must be lower-case letters, digits, '.', '-' or '_' (it is the folder name).")
+        elif mid in ids or mid in sids:
+            err.append(f"{where}: id is used twice.")
+        sids.add(mid)
+        if not str(m.get("name", "")).strip():
+            err.append(f"{where}: name is missing.")
+        if m.get("kind", "llm") != "llm":
+            err.append(f"{where}: kind must be \"llm\".")
+        if m.get("family") not in LLM_FAMILIES:
+            err.append(f"{where}: family {m.get('family')!r} is not a chat format this program knows "
+                       f"({', '.join(LLM_FAMILIES)}); a new format needs a new program version.")
+        if not REPO.match(str(m.get("repo", ""))):
+            err.append(f"{where}: repo must be a Hugging Face 'owner/name'.")
+        if not HEX40.match(str(m.get("revision", ""))):
+            err.append(f"{where}: revision must be the 40-character commit id (run update-model-list to fill it).")
+        if not str(m.get("license", "")).strip():
+            err.append(f"{where}: license is missing.")
+        url = m.get("license_url", "")
+        if url and not str(url).startswith(("https://", "http://")):
+            err.append(f"{where}: license_url must start with https://.")
+        if m.get("offered", "Could") not in PRIORITIES:
+            err.append(f"{where}: offered must be one of {', '.join(PRIORITIES)}.")
+        files = m.get("files")
+        if not isinstance(files, list) or len(files) != 1 or not isinstance(files[0], dict):
+            err.append(f"{where}: files must list exactly one .gguf file.")
+            continue
+        f = files[0]
+        fn = str(f.get("name", ""))
+        if not SAFE_FILE.match(fn) or ".." in fn or not fn.lower().endswith(".gguf"):
+            err.append(f"{where}: file name {fn!r} is not allowed (one plain .gguf name, no folders).")
+        if not isinstance(f.get("size"), int) or f["size"] <= 0:
+            err.append(f"{where}: {fn} has no size (run update-model-list to fill it).")
+        if not HEX64.match(str(f.get("sha256", ""))):
+            err.append(f"{where}: {fn} has no SHA-256 (run update-model-list to fill it).")
+        m["kind"] = "llm"
+        m["languages"] = [x for x in m.get("languages", list(LANGS)) if x in LANGS] or list(LANGS)
+        m["size"] = f.get("size", 0) if isinstance(f.get("size"), int) else 0
+        m.setdefault("offered", "Could")
+        m.setdefault("note", "")
+    for key in ("summary_recommended", "summary_automatic"):
+        rec = out.get(key)
+        if rec is None:
+            continue
+        if not isinstance(rec, dict):
+            err.append(f"{key} must have 'below' and 'at_or_above' lists.")
+            continue
+        for k in ("below", "at_or_above"):
+            for mid in rec.get(k, []) if isinstance(rec.get(k, []), list) else ["?"]:
+                if mid not in sids:
+                    err.append(f"{key}.{k}: {mid} is not in summary_models.")
 
 
 def load():
@@ -177,6 +246,11 @@ def diff(old, new):
     added = [n[i]["name"] for i in n if i not in o]
     removed = [o[i]["name"] for i in o if i not in n]
     changed = [n[i]["name"] for i in n if i in o and n[i]["revision"] != o[i]["revision"]]
+    os_ = {m["id"]: m for m in old.get("summary_models", [])}
+    ns_ = {m["id"]: m for m in new.get("summary_models", [])}
+    added += [ns_[i]["name"] for i in ns_ if i not in os_]
+    removed += [os_[i]["name"] for i in os_ if i not in ns_]
+    changed += [ns_[i]["name"] for i in ns_ if i in os_ and ns_[i]["revision"] != os_[i]["revision"]]
     return added, removed, changed
 
 

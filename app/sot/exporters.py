@@ -246,3 +246,73 @@ def write_docx(path, blocks, meta, settings):
         p.add_run(b["text"])
         p.paragraph_format.space_after = Pt(6)
     doc.save(path)
+
+
+# ---------------------------------------------------------------- AI summary (2.3.0)
+SUMMARY_FORMATS = {"md": ("Markdown", ".md"), "txt": ("Plain text", ".txt"), "docx": ("Word", ".docx")}
+SUMMARY_SUFFIX = "_summary"
+
+
+def summary_note(meta):
+    """The line that says where the summary came from (kept with the summary in every format)."""
+    return (f"AI summary of {meta.get('file', 'the recording')}, written on this computer by "
+            f"{meta.get('summary_model', 'a language model')} on {meta.get('summary_date', meta.get('date', ''))}. "
+            "Check it against the transcript: language models can be wrong.")
+
+
+def write_summary(fmt, path, md_text, meta, settings):
+    """Markdown as it is; plain text without Markdown marks; Word with headings and bullet points."""
+    enc = settings.get("output.encoding") if fmt != "docx" else None
+    if fmt == "md":
+        _write_text(path, f"{md_text.strip()}\n\n---\n*{summary_note(meta)}*\n", enc)
+    elif fmt == "txt":
+        from .summary import to_plain
+        _write_text(path, f"{to_plain(md_text)}\n\n{summary_note(meta)}\n", enc)
+    elif fmt == "docx":
+        write_summary_docx(path, md_text, meta, settings)
+    else:
+        raise ValueError(fmt)
+
+
+def write_summary_docx(path, md_text, meta, settings):
+    from docx import Document
+    from docx.shared import Inches, Pt
+    doc = Document()
+    sec = doc.sections[0]
+    if settings.get("output.page_size") == "A4":
+        sec.page_width, sec.page_height = Inches(8.27), Inches(11.69)
+    else:
+        sec.page_width, sec.page_height = Inches(8.5), Inches(11)
+    doc.add_heading(f"Summary: {meta.get('file', '')}", level=1)
+
+    def runs(p, text):
+        for i, part in enumerate(re.split(r"\*\*(.+?)\*\*", text)):
+            if part:
+                p.add_run(part).bold = bool(i % 2)
+
+    para = []
+
+    def flush():
+        if para:
+            runs(doc.add_paragraph(), " ".join(para))
+            para.clear()
+    for line in md_text.splitlines():
+        s = line.strip()
+        m = re.match(r"^(#{1,6})\s*(.*)$", s)
+        b = re.match(r"^([-*•]|\d+[.)])\s+(.*)$", s)
+        if m:
+            flush()
+            doc.add_heading(m.group(2).replace("**", ""), level=min(3, len(m.group(1))))
+        elif b:
+            flush()
+            runs(doc.add_paragraph(style="List Bullet"), b.group(2))
+        elif not s:
+            flush()
+        else:
+            para.append(s)
+    flush()
+    note = doc.add_paragraph()
+    r = note.add_run(summary_note(meta))
+    r.italic = True
+    r.font.size = Pt(8)
+    doc.save(path)

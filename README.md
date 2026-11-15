@@ -1,6 +1,6 @@
 # Secure Offline Transcriber
 
-**Turn recordings into time-stamped transcripts on Windows or Mac. Nothing leaves your computer. Install nothing.**
+**Turn recordings into time-stamped transcripts and summaries on Windows or Mac. Nothing leaves your computer. Install nothing.**
 
 <p>
   <a href="https://github.com/hylhk23/SecureOfflineTranscriber/releases/latest"><img src="https://img.shields.io/github/v/release/hylhk23/SecureOfflineTranscriber?style=flat-square&label=version" alt="Latest version"></a>
@@ -10,11 +10,11 @@
   <a href="https://buymeacoffee.com/flyingturtle"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black" alt="Buy me a coffee"></a>
 </p>
 
-A speech-to-text program for **Windows and macOS** that turns recorded meetings, interviews and calls into time-stamped transcripts in **English, French, Cantonese and Mandarin**, using speech models that run on your own computer. Portable: unzip and run, no installation and no admin rights.
+A speech-to-text program for **Windows and macOS** that turns recorded meetings, interviews and calls into time-stamped transcripts in **English, French, Cantonese and Mandarin**, using speech models that run on your own computer, and can write a short AI summary of each one, also on your computer. Portable: unzip and run, no installation and no admin rights.
 
-**Download: [Windows 2.2.0](https://github.com/hylhk23/SecureOfflineTranscriber/releases/tag/v2.2.0) · [Mac 2.2.1](https://github.com/hylhk23/SecureOfflineTranscriber/releases/latest)** · Windows 11 or 10, 64-bit · macOS 14 or later on Apple silicon (M1 or newer) · Free
+**Download: [latest release](https://github.com/hylhk23/SecureOfflineTranscriber/releases/latest)** · Windows 11 or 10, 64-bit · macOS 14 or later on Apple silicon (M1 or newer) · Free
 
-Version 2.2.1, with the voice detection fix and options described below, is out for the Mac first. Windows gets the same changes in its next release.
+**New in 2.3.1**, the same version on Windows and Mac: an optional **AI summary** of each transcript (key points, decisions, action items, each with its time), **English spelling for your country** (American, British, Canadian, Australian or Hong Kong), and the voice detection fix that 2.2.1 brought to the Mac.
 
 <p align="center">
   <img src="docs/images/main-window.png" alt="Secure Offline Transcriber transcribing a recording: progress bar, time-stamped text appearing line by line, Stop button and statistics bar" width="760">
@@ -32,6 +32,8 @@ Open a recording (WAV, MP3, M4A, MP4, MKV and most other audio and video files),
 | **Resume long jobs** | Stop a long file, or survive a crash or power cut, and carry on where it stopped |
 | **Names spelled right** | Takes the names from your agenda, attendee list or e-mail and gives them to Whisper as hotwords |
 | **Ready for minutes and subtitles** | Text with times, plain text, Word, SRT and WebVTT subtitles, Markdown, JSON and CSV |
+| **AI summary (optional)** | Summary, key points, decisions, action items and open questions, each point with its time, written by a small language model on your computer |
+| **Your country's spelling** | English in American, British, Canadian, Australian or Hong Kong spelling, chosen from your computer's country or region |
 | **Windows and Mac** | Unzip and run: `run.bat` on Windows, `run.command` on a Mac with Apple silicon. No installer, no admin rights |
 
 > **Free, with no ads, no account and no subscription.** If Secure Offline Transcriber saves you an afternoon of typing up a recording, consider buying me a coffee. It keeps the project going.
@@ -70,6 +72,12 @@ Speech models misspell names they have never heard. Open the agenda, attendee li
   <img src="docs/images/names.png" alt="Names from documents: people and organisations found in an agenda, ticked to be added to a new vocabulary set" width="620">
 </p>
 
+### AI summary, written on your computer
+Turn on **Options > AI Summary** and download one of six small language models (Qwen3, Qwen3.5 or Gemma 4, 1.8 to 5 GB). When a transcript is complete, the summary appears in an **AI summary** tab: a short summary, key points, decisions, action items and open questions, each point ending with the time it was discussed, so a click plays that part of the recording. The transcript never leaves your computer. Small models can get details wrong, so check the summary against the transcript; you can edit it and save it with the transcript. On a Mac with Apple silicon, the model runs on the graphics chip when it fits.
+
+### English spelling for your country
+Speech models write English mostly in American spelling. **Options > Transcription > English spelling** writes it the way your country does: American (color, organize), British (colour, organise), Canadian (colour, organize), Australian or Hong Kong. **Automatic** follows the country or region set on your computer. Only spelling changes; names and your vocabulary terms are kept, and words whose spelling depends on the meaning (practice or practise, cheque or check) change only where the sentence makes the meaning clear. **Edit > Change English Spelling** converts a transcript that is already open.
+
 ### Long recordings: resume and queue
 Stop a long transcription when you need the PC and press **Resume** later: it carries on from where it stopped, with the same model and language, and keeps any corrections you made in the meantime. The text is also saved every few seconds while a job runs, so after a crash or power cut the program offers to resume. Several files can be queued and are saved one by one.
 
@@ -79,10 +87,10 @@ It is a portable application. Copy the folder to any location you can write to (
 ### Unlikely to trigger antivirus false alarms
 Python programs packed into an `.exe` with tools such as PyInstaller are sometimes flagged by antivirus engines. Secure Offline Transcriber avoids that packing:
 - the package contains three programs: `python.exe` and `pythonw.exe`, the official Python 3.13 interpreter from python.org, **digitally signed by the Python Software Foundation**, and `ffmpeg.exe`, the unmodified FFmpeg build from gyan.dev that reads audio and video files (FFmpeg builds are not signed; its source and checksum are listed in `ffmpeg\SOURCE.txt`);
-- everything else is plain Python source code (`.py`), which you can read, and standard library files (`.pyd`, `.dll`) from python.org and the Python Package Index;
+- everything else is plain Python source code (`.py`), which you can read, and standard library files (`.pyd`, `.dll`) from python.org and the Python Package Index, plus the AI summary engine in `llamacpp\`: the official llama.cpp libraries, unmodified (not signed), without llama.cpp's programs or its network component;
 - `verify-files.bat` checks every file against the list of checksums shipped with the package.
 
-On a Mac, the package contains two programs: `python3.13`, built by the [python-build-standalone](https://github.com/astral-sh/python-build-standalone) project, and `ffmpeg`, FFmpeg 9.0 for Apple silicon taken unmodified from the [imageio-ffmpeg](https://pypi.org/project/imageio-ffmpeg/) package. Like every library file in the package, they are signed ad hoc, as Apple silicon requires, but not notarized by Apple, so macOS asks once before running them (see [macOS](#macos-apple-silicon)). `verify-files.command` checks every file.
+On a Mac, the package contains two programs: `python3.13`, built by the [python-build-standalone](https://github.com/astral-sh/python-build-standalone) project, and `ffmpeg`, FFmpeg 9.0 for Apple silicon taken unmodified from the [imageio-ffmpeg](https://pypi.org/project/imageio-ffmpeg/) package. Like every library file in the package, they are signed ad hoc, as Apple silicon requires, but not notarized by Apple, so macOS asks once before running them (see [macOS](#macos-apple-silicon)). The AI summary engine in `llamacpp/` is llama.cpp's official macOS libraries, unmodified, with their own signatures; its network library is included because the other libraries link to it, and the program never gives it a server address. `verify-files.command` checks every file.
 
 ### Other useful features
 - Model manager: download, pause and resume models; use models kept on another drive, a NAS or a USB stick; move models to a PC without internet as a model pack.
@@ -98,12 +106,12 @@ On a Mac, the package contains two programs: `python3.13`, built by the [python-
 
 ## How it works
 
-The program runs as two processes on your computer. The window you work in never does the heavy work: each transcription is handed to a separate worker process, so the window stays responsive, and if a model fails, the text already made is kept.
+The program runs as three processes on your computer. The window you work in never does the heavy work: each transcription is handed to a separate worker process, and each AI summary to a summary process, so the window stays responsive, and if a model fails, the text already made is kept.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/architecture-dark.png">
-    <img src="docs/images/architecture-light.png" alt="How Secure Offline Transcriber works: the main process (main window, transcript editor, player, names from documents, settings and journal, model manager) sends a job to the worker process, which decodes the audio with ffmpeg.exe, finds the speech with Silero voice detection and recognises it on the CPU with Whisper, SenseVoice, Parakeet or Moonshine, then sends the text back. Settings, jobs, logs and models stay in the program folder, transcripts go to Documents\SOT Transcripts, and the only network connection is a model download from Hugging Face, made on click and blocked in Offline Mode." width="760">
+    <img src="docs/images/architecture-light.png" alt="How Secure Offline Transcriber works: the main process (main window, transcript editor with English spelling, player, names from documents, settings and journal, model manager for speech and summary models) sends a job to the worker process, which decodes the audio with ffmpeg, finds the speech with Silero voice detection and recognises it on the CPU with Whisper, SenseVoice, Parakeet or Moonshine, then sends the text back. When the transcript is complete, the summary process writes the summary with llama.cpp and a Qwen or Gemma model, on the CPU or a Mac's graphics chip. Settings, jobs, logs and models stay in the program folder, transcripts and summaries go to Documents/SOT Transcripts, and the only network connection is a model download from Hugging Face, made on click and blocked in Offline Mode." width="760">
   </picture>
 </p>
 
@@ -116,23 +124,24 @@ The program runs as two processes on your computer. The window you work in never
 5. **Choose the model.** With the language on Auto-detect, a language check runs on the first 15 minutes. With the model on Automatic, the first installed model in that language's order is used: Whisper large-v3-turbo (then Parakeet) for English and French, SenseVoiceSmall for Cantonese and Mandarin. The model loads once and stays loaded for the next file.
 6. **Recognise.** The model turns each piece into text on the CPU; Whisper also gets the names in your vocabulary set as hotwords. Each finished piece goes straight back to the window, so the text appears line by line with its time, while the progress bar and statistics update about once a second.
 7. **Keep the work safe.** While the job runs, the text so far is saved to `data\jobs` every 10 pieces or 3 seconds. After Stop, a crash or a power cut, **Resume** carries on from the end of that text.
-8. **Clean up and save.** When the job ends, the window removes known invented phrases and runaway repeats, applies your replacements, converts Chinese to the characters you chose and builds paragraphs. The transcript and your chosen formats are saved to `Documents\SOT Transcripts`.
+8. **Clean up and save.** When the job ends, the window removes known invented phrases and runaway repeats, converts Chinese to the characters you chose, applies your replacements, writes English in your country's spelling and builds paragraphs. The transcript and your chosen formats are saved to `Documents\SOT Transcripts`.
+9. **Summarise (optional).** With the AI summary on, the window sends the finished transcript to the summary process, where llama.cpp runs the summary model on the CPU (on a Mac, on the graphics chip when the model fits). A long transcript is read in parts and their notes are combined. The summary appears in its tab and is saved next to the transcript as `{name}_summary.md`.
 
 **Proofreading.** The player is part of the window: `ffmpeg.exe` streams the recording to your speakers through sounddevice, at 0.5× to 1.5× speed with natural pitch, and the transcript editor uses the playback time to highlight the sentence being spoken.
 
 **Names from documents.** The agenda, attendee list or e-mail you open is read on your computer, and simple rules pick out the names. You check them before they go into a vocabulary set.
 
-**The only network connection.** The model manager downloads model files from Hugging Face when you click **Download**, at a fixed version, and checks every file against its SHA-256 fingerprint. No audio or text is ever sent. Once a model is installed, Offline Mode switches on and blocks even that.
+**The only network connection.** The model manager downloads speech and summary model files from Hugging Face when you click **Download**, at a fixed version, and checks every file against its SHA-256 fingerprint. No audio or text is ever sent. Once a model is installed, Offline Mode switches on and blocks even that; the Options tabs say so and offer to turn it off when you want to download.
 
 ---
 
 ## Install
 
-You need Windows 11 or 10 (64-bit), or a Mac with Apple silicon (M1 or newer) on macOS 14 Sonoma or later. Each download is a zip file of about 150 MB (420 to 440 MB once extracted). At the first start the program downloads the speech model you choose (internet needed once): the recommended model is Whisper small (486 MB), or Whisper large-v3-turbo (1.6 GB) on a PC with 12 GB of memory or more. For Cantonese or Mandarin, tick the box to add SenseVoiceSmall (240 MB).
+You need Windows 11 or 10 (64-bit), or a Mac with Apple silicon (M1 or newer) on macOS 14 Sonoma or later. Each download is a zip file of 150 to 160 MB (about 450 MB once extracted). At the first start the program downloads the speech model you choose (internet needed once): the recommended model is Whisper small (486 MB), or Whisper large-v3-turbo (1.6 GB) on a PC with 12 GB of memory or more. For Cantonese or Mandarin, tick the box to add SenseVoiceSmall (240 MB).
 
 ### Windows: manual download
 
-1. Open the **[2.2.0 release](https://github.com/hylhk23/SecureOfflineTranscriber/releases/tag/v2.2.0)** (the current Windows version) and click **`SecureOfflineTranscriber-portable-win64.zip`** under *Assets*.
+1. Open the **[latest release](https://github.com/hylhk23/SecureOfflineTranscriber/releases/latest)** and click **`SecureOfflineTranscriber-portable-win64.zip`** under *Assets*.
 2. In File Explorer, right-click the downloaded zip, choose **Properties**, tick **Unblock** at the bottom (if shown) and click **OK**. This stops Windows from showing security warnings for files that came from the internet.
 3. Right-click the zip and choose **Extract All...**, pick a folder you can write to (for example `C:\Users\<you>\Apps`) and click **Extract**. Inside it you get a folder named `SecureOfflineTranscriber`. (Windows may add a folder named after the zip around it; that is fine.)
 4. Optional: double-click **`verify-files.bat`** in that folder. It checks that every file arrived complete (antivirus programs sometimes block a file while unzipping).
@@ -145,7 +154,7 @@ Open **Command Prompt** or **PowerShell** and run these lines. They use `curl` a
 
 ```bat
 cd %USERPROFILE%
-curl.exe -L -o SecureOfflineTranscriber-portable-win64.zip https://github.com/hylhk23/SecureOfflineTranscriber/releases/download/v2.2.0/SecureOfflineTranscriber-portable-win64.zip
+curl.exe -L -o SecureOfflineTranscriber-portable-win64.zip https://github.com/hylhk23/SecureOfflineTranscriber/releases/latest/download/SecureOfflineTranscriber-portable-win64.zip
 tar -xf SecureOfflineTranscriber-portable-win64.zip
 SecureOfflineTranscriber\run.bat
 ```
@@ -215,8 +224,10 @@ On a Mac: quit the program and move the `SecureOfflineTranscriber` folder to the
 | `run.bat` does nothing, or asks for Python | Make sure the `python` folder is inside `SecureOfflineTranscriber`. Download the **portable** zip from Releases, not *Code > Download ZIP* (that is the source code only). `run-debug.bat` shows what goes wrong. |
 | Model download fails at work | The network may block Hugging Face. Try **Options > Advanced > Proxy**, or download the models on another PC and use **Export model pack** / **Import model pack**. Offline Mode must be off to download. |
 | Names come out wrong | Use a Whisper model and add the names as hotwords (**Edit > Add Names from Documents**), or add replacements in **Options > Vocabulary**. |
-| Large parts of a recording have no text, or a warning says only a small share was recognised as speech | **Raw output** lists the stretches without text. Play them; if people talk there, go to **Options > Advanced > Voice detection**: lower **Speech threshold** (for example to 0.35) and keep **Check stretches without speech** ticked, or with a Whisper model tick **Voice detection off**. Turn Noise reduction off and choose **Transcribe > Start Again from the Beginning**. Version 2.2.0 could miss most of the speech on some long recordings; 2.2.1 for the Mac fixes this, and the next Windows release will too. |
+| Large parts of a recording have no text, or a warning says only a small share was recognised as speech | **Raw output** lists the stretches without text. Play them; if people talk there, go to **Options > Advanced > Voice detection**: lower **Speech threshold** (for example to 0.35) and keep **Check stretches without speech** ticked, or with a Whisper model tick **Voice detection off**. Turn Noise reduction off and choose **Transcribe > Start Again from the Beginning**. Version 2.2.0 could miss most of the speech on some long recordings; 2.2.1 (Mac) and 2.3.1 (Windows and Mac) fix this. |
 | Transcription is slow | Use SenseVoiceSmall or Parakeet, keep Speed on **Fast**, and stop other heavy programs. You can **Stop** and **Resume** later. |
+| AI summary: wrong decision, task or name | Click the point's time to hear it and correct the summary with **Edit**; add names under **Extra instructions** in Options > AI Summary, or try a 4B model. |
+| An English word is spelt the wrong way for your country | Check **Options > Transcription > English spelling** (Automatic shows the country it found). Words whose spelling depends on the meaning stay as written when the sentence does not make the meaning clear; correct them by hand or add a replacement. |
 | Your organization blocks programs in your user folders | Some IT policies only allow programs in approved locations. Ask your IT team. |
 | Mac: "cannot be opened" or "Apple could not verify" | The folder still has the "downloaded from the internet" mark. Double-click `run.command` and accept its offer to remove the mark, or run the `xattr` line in [macOS](#macos-apple-silicon). |
 | Mac: nothing happens, or an error about the processor | The Mac edition needs Apple silicon (M1 or newer) and macOS 14 or later; *Apple menu > About This Mac* shows both. `run-debug.command` shows what goes wrong. |
@@ -225,7 +236,7 @@ On a Mac: quit the program and move the `SecureOfflineTranscriber` folder to the
 
 ## For developers
 
-The repository holds the Python source code. The portable zip on the Releases page adds the Python runtime, the libraries and `ffmpeg.exe`.
+The repository holds the Python source code. The portable zip on the Releases page adds the Python runtime, the libraries, `ffmpeg.exe` and the llama.cpp libraries for the AI summary.
 
 ```bat
 git clone https://github.com/hylhk23/SecureOfflineTranscriber.git
@@ -257,4 +268,4 @@ Secure Offline Transcriber is built and maintained by one developer in spare tim
 
 ## Licence
 
-Copyright © 2026 Neo Time Consulting. Free to download and use; see [LICENSE](LICENSE). Bundled third-party software keeps its own licences, and speech models are downloaded under their owners' licences; see [THIRD-PARTY-LICENSES.txt](THIRD-PARTY-LICENSES.txt). Screenshots use a sample from the LibriSpeech corpus (CC BY 4.0).
+Copyright © 2026 Neo Time Consulting. Free to download and use; see [LICENSE](LICENSE). Bundled third-party software and word data keep their own licences, and speech and summary models are downloaded under their owners' licences; see [THIRD-PARTY-LICENSES.txt](THIRD-PARTY-LICENSES.txt). Screenshots use a sample from the LibriSpeech corpus (CC BY 4.0).

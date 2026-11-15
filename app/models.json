@@ -1,9 +1,9 @@
 {
  "app": "SecureOfflineTranscriber",
  "format": 2,
- "list_version": "2026.11.04",
+ "list_version": "2026.11.05",
  "min_app_version": "2.1.1",
- "description": "Models offered in Options > Transcription. Edit with build/tools/update-model-list.py; see MODEL-LIST.md.",
+ "description": "Models offered in Options > Transcription and Options > AI Summary. Edit with build/tools/update-model-list.py; see MODEL-LIST.md.",
  "recommended": {
   "ram_gb": 12,
   "below": [
@@ -483,6 +483,203 @@
      "name": "vocabulary.txt",
      "size": 459861,
      "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913"
+    }
+   ]
+  }
+ ],
+ "summary_recommended": {
+  "ram_gb": 12,
+  "below": [
+   "qwen3-1.7b"
+  ],
+  "at_or_above": [
+   "qwen3-4b-instruct-2507"
+  ]
+ },
+ "summary_automatic": {
+  "below": [
+   "qwen3-1.7b",
+   "gemma-4-e2b",
+   "qwen3.5-2b",
+   "qwen3-4b-instruct-2507",
+   "qwen3.5-4b",
+   "gemma-4-e4b"
+  ],
+  "at_or_above": [
+   "qwen3-4b-instruct-2507",
+   "qwen3.5-4b",
+   "gemma-4-e4b",
+   "gemma-4-e2b",
+   "qwen3.5-2b",
+   "qwen3-1.7b"
+  ]
+ },
+ "summary_models": [
+  {
+   "id": "qwen3-1.7b",
+   "name": "Qwen3-1.7B",
+   "kind": "llm",
+   "family": "qwen3",
+   "languages": [
+    "en",
+    "fr",
+    "yue",
+    "zh"
+   ],
+   "repo": "Qwen/Qwen3-1.7B-GGUF",
+   "revision": "90862c4b9d2787eaed51d12237eafdfe7c5f6077",
+   "upstream": "Qwen/Qwen3-1.7B",
+   "license": "Apache-2.0",
+   "license_url": "https://huggingface.co/Qwen/Qwen3-1.7B/blob/main/LICENSE",
+   "offered": "Must",
+   "note": "Small and quick: for PCs with less than 12 GB of memory. Quantised 8-bit (Q8_0), official Qwen file.",
+   "context_max": 40960,
+   "size": 1834426016,
+   "files": [
+    {
+     "name": "Qwen3-1.7B-Q8_0.gguf",
+     "size": 1834426016,
+     "sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a"
+    }
+   ]
+  },
+  {
+   "id": "qwen3-4b-instruct-2507",
+   "name": "Qwen3-4B-Instruct-2507",
+   "kind": "llm",
+   "family": "qwen3-instruct",
+   "languages": [
+    "en",
+    "fr",
+    "yue",
+    "zh"
+   ],
+   "repo": "unsloth/Qwen3-4B-Instruct-2507-GGUF",
+   "revision": "a06e946bb6b655725eafa393f4a9745d460374c9",
+   "upstream": "Qwen/Qwen3-4B-Instruct-2507",
+   "license": "Apache-2.0",
+   "license_url": "https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507/blob/main/LICENSE",
+   "offered": "Must",
+   "note": "Best summaries of the Qwen3 models: for PCs with 12 GB of memory or more. 4-bit (Q4_K_M).",
+   "context_max": 262144,
+   "size": 2497281120,
+   "files": [
+    {
+     "name": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+     "size": 2497281120,
+     "sha256": "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597"
+    }
+   ]
+  },
+  {
+   "id": "qwen3.5-2b",
+   "name": "Qwen3.5-2B",
+   "kind": "llm",
+   "family": "qwen3.5",
+   "languages": [
+    "en",
+    "fr",
+    "yue",
+    "zh"
+   ],
+   "repo": "unsloth/Qwen3.5-2B-GGUF",
+   "revision": "f6d5376be1edb4d416d56da11e5397a961aca8ae",
+   "upstream": "Qwen/Qwen3.5-2B",
+   "license": "Apache-2.0",
+   "license_url": "https://huggingface.co/Qwen/Qwen3.5-2B",
+   "offered": "Should",
+   "note": "Newer (March 2026) small model. 8-bit (Q8_0).",
+   "context_max": 262144,
+   "size": 2012012800,
+   "files": [
+    {
+     "name": "Qwen3.5-2B-Q8_0.gguf",
+     "size": 2012012800,
+     "sha256": "1b04acba824817554f4ce23639bc8495ff70453b8fcb047900c731521021f2c1"
+    }
+   ]
+  },
+  {
+   "id": "qwen3.5-4b",
+   "name": "Qwen3.5-4B",
+   "kind": "llm",
+   "family": "qwen3.5",
+   "languages": [
+    "en",
+    "fr",
+    "yue",
+    "zh"
+   ],
+   "repo": "unsloth/Qwen3.5-4B-GGUF",
+   "revision": "e87f176479d0855a907a41277aca2f8ee7a09523",
+   "upstream": "Qwen/Qwen3.5-4B",
+   "license": "Apache-2.0",
+   "license_url": "https://huggingface.co/Qwen/Qwen3.5-4B",
+   "offered": "Should",
+   "note": "Newer (March 2026) model; 12 GB of memory or more. 4-bit (Q4_K_M).",
+   "context_max": 262144,
+   "size": 2740937888,
+   "files": [
+    {
+     "name": "Qwen3.5-4B-Q4_K_M.gguf",
+     "size": 2740937888,
+     "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
+    }
+   ]
+  },
+  {
+   "id": "gemma-4-e2b",
+   "name": "Gemma 4 E2B",
+   "kind": "llm",
+   "family": "gemma4",
+   "languages": [
+    "en",
+    "fr",
+    "yue",
+    "zh"
+   ],
+   "repo": "unsloth/gemma-4-E2B-it-GGUF",
+   "revision": "0314792d7f1f7e229411f620751375812bb9faf2",
+   "upstream": "google/gemma-4-E2B-it",
+   "license": "Apache-2.0",
+   "license_url": "https://huggingface.co/google/gemma-4-E2B-it",
+   "offered": "Should",
+   "note": "Google's small Gemma 4 model (2B effective parameters). 4-bit (Q4_K_M).",
+   "context_max": 131072,
+   "size": 3106738272,
+   "files": [
+    {
+     "name": "gemma-4-E2B-it-Q4_K_M.gguf",
+     "size": 3106738272,
+     "sha256": "740185b21d22ceb83a11c3aa62ad5842ef32c70f6096d756bbee85a1e4ec34b8"
+    }
+   ]
+  },
+  {
+   "id": "gemma-4-e4b",
+   "name": "Gemma 4 E4B",
+   "kind": "llm",
+   "family": "gemma4",
+   "languages": [
+    "en",
+    "fr",
+    "yue",
+    "zh"
+   ],
+   "repo": "unsloth/gemma-4-E4B-it-GGUF",
+   "revision": "bfc15c382204943c3a8fff0c750b94ae2364d7a3",
+   "upstream": "google/gemma-4-E4B-it",
+   "license": "Apache-2.0",
+   "license_url": "https://huggingface.co/google/gemma-4-E4B-it",
+   "offered": "Could",
+   "note": "Google's larger Gemma 4 edge model (4B effective parameters); 16 GB of memory recommended. 4-bit (Q4_K_M).",
+   "context_max": 131072,
+   "size": 4977171584,
+   "files": [
+    {
+     "name": "gemma-4-E4B-it-Q4_K_M.gguf",
+     "size": 4977171584,
+     "sha256": "85a896a047553e842f25297ee5b031d64ff30147d9c4af17b1e4b394cd1fab87"
     }
    ]
   }

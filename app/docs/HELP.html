@@ -34,16 +34,16 @@ td.v { white-space:nowrap; }
 </style>
 </head>
 <body>
-<header><div><h1>Secure Offline Transcriber 2.2.1</h1>
-<p class="sub">Time-stamped transcripts of recorded audio and video, made entirely on this PC. English, French, Cantonese and Mandarin.</p></div></header>
+<header><div><h1>Secure Offline Transcriber 2.3.1</h1>
+<p class="sub">Time-stamped transcripts of recorded audio and video, made entirely on this PC. English, French, Cantonese and Mandarin. Optional AI summary, also written on this PC.</p></div></header>
 <nav>
 <b>Using the program</b>
 <a href="#start">Getting started</a><a href="#transcribe">Transcribe</a><a href="#resume">Stop and resume</a><a href="#proofread">Proofread</a>
-<a href="#names">Names from documents</a><a href="#noise">Noisy recordings</a><a href="#save">Save and export</a><a href="#models">Models</a>
+<a href="#names">Names from documents</a><a href="#spelling">English spelling</a><a href="#noise">Noisy recordings</a><a href="#save">Save and export</a><a href="#summary">AI summary</a><a href="#models">Models</a>
 <a href="#privacy">Privacy</a><a href="#choose">Which settings to change</a>
 <b>Reference</b>
 <a href="#menu-file">File menu</a><a href="#menu-edit">Edit menu</a><a href="#menu-transcribe">Transcribe menu</a><a href="#menu-options">Options menu</a><a href="#menu-help">Help menu</a>
-<a href="#opt-general">Options: General</a><a href="#opt-transcription">Transcription</a><a href="#opt-vocabulary">Vocabulary</a><a href="#opt-output">Output</a><a href="#opt-advanced">Advanced</a>
+<a href="#opt-general">Options: General</a><a href="#opt-transcription">Transcription</a><a href="#opt-vocabulary">Vocabulary</a><a href="#opt-output">Output</a><a href="#opt-advanced">Advanced</a><a href="#opt-summary">AI Summary</a>
 <a href="#window">Window, statistics and model states</a><a href="#trouble">Troubleshooting</a><a href="#keys">Keyboard shortcuts</a><a href="#mac">On a Mac</a>
 </nav>
 <main>
@@ -65,7 +65,7 @@ already keep models somewhere, for example the <code>local_whisper</code> folder
 </ol>
 <p>The window has three parts: <strong>Media input</strong> at the top (file, Transcribe button, queue, player), the
 <strong>Transcript</strong> and <strong>Raw output</strong> tabs in the middle, and the status line and statistics bar at the bottom. The title
-bar shows the program name and version, for example <em>Secure Offline Transcriber (2.2.1)</em>, and the progress while a job runs.</p>
+bar shows the program name and version, for example <em>Secure Offline Transcriber (2.3.1)</em>, and the progress while a job runs.</p>
 
 <h2 id="transcribe">Transcribe a recording</h2>
 <ol>
@@ -142,6 +142,42 @@ said; if that happens, shorten the list.</div>
 <em>First name</em>, <em>Last name</em>, <em>Company</em> or <em>Organisation</em> give the best results; a PDF loses its table layout, so check
 its suggestions more carefully.</p>
 
+<h2 id="spelling">English spelling</h2>
+<p>Speech models spell English their own way, mostly American. The program can write English transcripts in the spelling of your
+country: <strong>American</strong> (color, organize, center), <strong>British</strong> (colour, organise, centre),
+<strong>Canadian</strong> (colour, organize, centre), <strong>Australian</strong> (colour, organise, centre) or
+<strong>Hong Kong</strong> (British spelling with <em>-ise</em>: colour, organise, programme). Choose it in
+<em>Options &gt; Transcription &gt; English spelling</em>. The transcript, its exports and the AI summary follow it.</p>
+<p><strong>Automatic</strong> (the default) follows the country or region of the computer: in Windows, <em>Settings &gt; Time &amp;
+language &gt; Language &amp; region &gt; Country or region</em> (Windows 10: <em>Time &amp; Language &gt; Region</em>); on a Mac, <em>System Settings &gt; General &gt; Language &amp; Region
+&gt; Region</em>. The list shows what it chose, for example <em>Automatic (Canadian, from Windows country or region: Canada)</em>.</p>
+<div class="table-wrap"><table><tr><th>Country or region</th><th>Spelling</th></tr>
+<tr><td>United States, Puerto Rico, Guam, US Virgin Islands, American Samoa, Northern Mariana Islands</td><td>American</td></tr>
+<tr><td>Canada</td><td>Canadian</td></tr>
+<tr><td>United Kingdom, Ireland, New Zealand</td><td>British</td></tr>
+<tr><td>Australia</td><td>Australian</td></tr>
+<tr><td>Hong Kong</td><td>Hong Kong</td></tr>
+<tr><td>Anywhere else</td><td>The regional format, if it is an English one (for example <em>English (United Kingdom)</em> gives British);
+otherwise the text stays as the model wrote it. Choose a spelling yourself to change that.</td></tr>
+</table></div>
+<p><strong>What changes:</strong> words that are spelt differently but are the same word: <em>colour/color, organise/organize,
+centre/center, travelled/traveled, catalogue/catalog, defence/defense, paediatric/pediatric</em> and about 5,000 more. Some words
+are spelt by meaning: in British, Canadian, Australian and Hong Kong spelling, <em>practise</em> and <em>license</em> are verbs while
+<em>practice</em> and <em>licence</em> are nouns; a <em>cheque</em> pays, a <em>check</em> tests; a <em>tyre</em> is on a wheel
+(Canadian: <em>tire</em>); a <em>metre</em> measures, a <em>meter</em> is a device; a building has <em>storeys</em>; British and Hong
+Kong spelling write a TV <em>programme</em> but a computer <em>program</em>. These change only where the words around them make the
+meaning clear ("write a check for $200" becomes "write a cheque for $200"; "let me check" stays); otherwise they stay as the model
+wrote them.</p>
+<p><strong>What stays:</strong> words that look like names (capitalised in mid-sentence, such as <em>Lincoln Center</em> or the
+<em>Labor Party</em>), the hotwords and replacement words of your vocabulary, web and e-mail addresses, file names, different words
+for the same thing (<em>lift/elevator, autumn/fall</em>), forms that are correct in both (<em>learnt/learned</em>), grammar,
+punctuation, dates and numbers. Only English text is changed; French, Cantonese and Mandarin text is not.</p>
+<p>Raw output lists the words that were changed. To change a transcript that is already open, for example one transcribed with
+another setting, use <em>Edit &gt; Change English Spelling</em>; it changes the AI summary too. To keep a word the way you want it,
+add it as a hotword or a replacement in <em>Options &gt; Vocabulary</em>.</p>
+<p>The word lists come from the English Speller Database by Kevin Atkinson, with Australian data by Benjamin Titze (see
+<code>THIRD-PARTY-LICENSES.txt</code> in the program folder).</p>
+
 <h2 id="noise">Noisy recordings</h2>
 <p>For recordings made in a café, on a conference floor or in a car, try <em>Transcribe &gt; Noise Reduction &gt; Light</em>. It removes rumble
 below the speech range and steady background noise before recognition, using filters built into ffmpeg.exe (nothing to download; it
@@ -171,6 +207,55 @@ formats from the edited text:</p>
 <tr><td>CSV (.csv)</td><td>One row per segment (index, start, end, duration, text); opens in Excel with Chinese intact.</td></tr></table>
 <p>Subtitles, JSON and CSV are written per segment; a paragraph you edited is written as one entry so your correction is not lost.</p>
 
+<h2 id="summary">AI summary</h2>
+<p>New in 2.3.0 (on a Mac, 2.3.1) and off until you turn it on. After the transcript of a recording is <strong>complete</strong>, a small language
+model on this PC writes a summary: a summary paragraph, key points, decisions, action items and open questions, each point with
+the time it was discussed. It appears in an <strong>AI summary</strong> tab next to <em>Transcript</em> and <em>Raw output</em>.
+While it is being written you can read, edit and play the transcript and look at the raw output as usual.</p>
+<ol>
+<li>Open <em>Options &gt; AI Summary</em> (or <em>Options &gt; AI Summary…</em> in the menu).</li>
+<li>Tick <em>Use AI summary</em>.</li>
+<li>Download a model: <em>Download recommended model for this PC</em> picks Qwen3-4B-Instruct-2507 on a PC with 12 GB of memory
+or more, otherwise Qwen3-1.7B. Turn <em>Offline Mode</em> off for the download if it is on.</li>
+<li>Transcribe a recording. When the transcript is complete, the summary is written by itself (or press <em>Write summary</em> in
+the tab, or <kbd>Ctrl+M</kbd>, when <em>Write the summary automatically</em> is off).</li>
+</ol>
+<div class="note"><strong>Check the summary against the transcript.</strong> Small language models can get details wrong: they may
+call an open question a decision, give a task to the wrong person or leave something out. Every point ends with its time, for
+example <code>[00:12:40]</code>: click it to hear that part of the recording. <em>Edit</em> lets you correct the summary.</div>
+<h3>Models</h3>
+<p>Six models can be downloaded in <em>Options &gt; AI Summary</em>. All of them summarise English, French, Cantonese and Mandarin
+transcripts; Cantonese and Mandarin are summarised in written Chinese, in the script chosen in <em>Options &gt; Transcription</em>
+(Traditional or Simplified). All are under the Apache 2.0 licence and come from huggingface.co at a fixed revision; the file is
+checked by SHA-256.</p>
+<div class="table-wrap"><table><tr><th>Model</th><th>Download</th><th>Suits</th></tr>
+<tr><td>Qwen3-1.7B</td><td class="v">1.8 GB</td><td>Recommended below 12 GB of memory. Quick; the simplest summaries.</td></tr>
+<tr><td>Qwen3-4B-Instruct-2507</td><td class="v">2.5 GB</td><td>Recommended from 12 GB of memory. Fuller, more accurate summaries.</td></tr>
+<tr><td>Qwen3.5-2B</td><td class="v">2.0 GB</td><td>Newer small model (March 2026); 8 GB of memory is enough.</td></tr>
+<tr><td>Qwen3.5-4B</td><td class="v">2.7 GB</td><td>Newer model; 12 GB of memory or more. Among the most accurate in our tests.</td></tr>
+<tr><td>Gemma 4 E2B</td><td class="v">3.1 GB</td><td>Google's small Gemma 4 model; 8 GB of memory is enough. Adds times reliably.</td></tr>
+<tr><td>Gemma 4 E4B</td><td class="v">5.0 GB</td><td>Google's larger Gemma 4 edge model; 16 GB of memory recommended. The slowest of the six.</td></tr>
+</table></div>
+<p><strong>How long it takes:</strong> the model runs on the processor. On a 2-core test PC, a 6-minute meeting took about half a
+minute to a minute with the small models and about 2 minutes with the 4B models; a one-hour meeting takes proportionally longer,
+so with a 4B model on a slow laptop expect tens of minutes. The status line and the tab show the progress, and <em>Stop</em> ends
+it at any time without touching the transcript.</p>
+<p><strong>Long meetings</strong> that do not fit in the <a href="#set-summary.context">context size</a> are read in parts: the model
+writes notes on each part, then the summary from the notes. This works for meetings of any length but loses a little detail, and
+small models make more mistakes when combining notes; the 4B models and a larger context help.</p>
+<h3>In the AI summary tab</h3>
+<table><tr><th>Button</th><th>What it does</th></tr>
+<tr><td>Write summary / Write again</td><td>Writes the summary of the transcript on screen (your edits to the transcript are used). Same as <em>Transcribe &gt; Write AI Summary</em>.</td></tr>
+<tr><td>Stop</td><td>Stops the summary; the text written so far stays on screen. The transcript is not affected.</td></tr>
+<tr><td>Edit / Done</td><td>Shows the summary as Markdown text to correct it; Done shows it formatted again. Your edits are saved with the transcript (<kbd>Ctrl+S</kbd>).</td></tr>
+<tr><td>Copy</td><td>Copies the summary formatted (for Word or Outlook) and as plain text.</td></tr>
+<tr><td>Save As…</td><td>Saves the summary as Markdown (.md), plain text (.txt) or Word (.docx).</td></tr>
+<tr><td>Options…</td><td>Opens <em>Options &gt; AI Summary</em>.</td></tr>
+</table>
+<p>With auto-save on, the summary is saved next to the transcript as <code>{name}_summary.md</code> and inside the session
+(<code>.sot.json</code>), so <em>File &gt; Open Transcript</em> brings it back. Every saved summary ends with a line naming the model
+that wrote it. A summary is written only for a complete transcript: after <em>Stop</em>, resume the transcription first.</p>
+
 <h2 id="models">Models</h2>
 <p><em>Options &gt; Transcription</em> holds the model manager. Each model is downloaded once from Hugging Face at a fixed version, and every
 file is checked by SHA-256; after that everything runs offline.</p>
@@ -191,17 +276,23 @@ subfolders are searched; models there are used in place and never changed. An un
 <li><strong>Add model from folder…</strong> takes one model folder and asks whether to copy it or use it where it is.</li>
 <li><strong>PCs without internet:</strong> select models and choose <em>Export model pack…</em>; on the other PC choose <em>Import model pack…</em>.</li>
 <li><strong>Updating the model list:</strong> the models offered come from a model list file. If you are sent a newer one, choose
-<em>Import model list…</em> or drop it on the window. New models appear; models you have show "Update available" when a newer version is
+<em>Import model list…</em> (on the Transcription or the AI Summary tab of Options) or drop it on the window. One file holds both the
+speech models and the AI summary models, so importing it on either tab updates both.
+A model of a new kind, or a summary model of a new chat format, needs a new program version; the import says so. New models appear; models you have show "Update available" when a newer version is
 listed and keep working until you press <em>Update</em>; models no longer listed stay usable. <em>Use built-in list</em> goes back.</li>
 </ul>
 
 <h2 id="privacy">Privacy</h2>
 <ul>
-<li>Audio and transcripts never leave this PC. There is no account, analytics, crash reporting or update server.</li>
+<li>Audio, transcripts and AI summaries never leave this computer. There is no account, analytics, crash reporting or update server.</li>
 <li>The network is used only to download a model you chose; <em>Options &gt; Offline Mode</em> blocks even that. It switches on by itself once a
 model is installed.</li>
 <li>Settings, logs, temporary files and the job journal stay in the <code>data</code> folder inside the program folder (or the folder you
 chose). Logs hold file names and timings, never transcript text, and are kept 7 days.</li>
+<li>The AI summary is written by a language model on this PC, in its own process. The transcript is not sent anywhere; the
+only network use is the model download you start in <em>Options &gt; AI Summary</em>. On Windows the summary engine
+(llama.cpp) is shipped without its network component. On a Mac that component is part of llama.cpp's libraries, so it is
+in the package, but it connects only to a server address it is given, and the program never gives it one.</li>
 <li><em>Options &gt; Advanced &gt; Privacy check</em> lists all of this for your PC.</li>
 </ul>
 
@@ -218,6 +309,7 @@ chose). Logs hold file names and timings, never transcript text, and are kept 7 
 <tr><td>One speaker per stereo channel</td><td><em>Stereo to mono</em>: Left or Right to transcribe one person.</td></tr>
 <tr><td>Subtitles for a video</td><td>Export SRT; set the subtitle limits; turn on <em>Word timestamps</em> for tighter timing (Whisper).</td></tr>
 <tr><td>Checking the transcript</td><td>Follow playback on, 0.75× speed, <kbd>F8</kbd> through the amber lines, <kbd>F6</kbd> to hear a sentence again.</td></tr>
+<tr><td>Minutes: a summary with decisions and action items</td><td>Turn on the <a href="#summary">AI summary</a>; Qwen3-4B-Instruct-2507 or Qwen3.5-4B with 12 GB of memory or more; add names and spellings under <em>Extra instructions</em>; check each point by clicking its time.</td></tr>
 </table></div>
 
 <p class="part">Part 2 &middot; Menu reference</p>
@@ -247,6 +339,7 @@ chose). Logs hold file names and timings, never transcript text, and are kept 7 
 <tr><td>Add Selection to Vocabulary…</td><td></td><td>Opens <em>Options &gt; Vocabulary</em> with the selected words as "Heard", so you type the right spelling once and it is fixed in future files.</td></tr>
 <tr><td>Add Names from Documents…</td><td></td><td>Finds names in an agenda, attendee list or e-mail and adds the ones you tick to a vocabulary set as hotwords (<a href="#names">details</a>).</td></tr>
 <tr><td>Apply Vocabulary Replacements</td><td></td><td>Runs the active set's replacements on the open transcript, for example after adding a new one.</td></tr>
+<tr><td>Change English Spelling…</td><td></td><td>Writes the English words of the open transcript (and its AI summary) in American, British, Canadian, Australian or Hong Kong spelling (<a href="#spelling">details</a>). The setting in Options is not changed.</td></tr>
 <tr><td>Go to Time…</td><td class="v"><kbd>Ctrl+G</kbd></td><td>Moves the player and the transcript to a time (hh:mm:ss or mm:ss).</td></tr>
 </table>
 
@@ -255,6 +348,8 @@ chose). Logs hold file names and timings, never transcript text, and are kept 7 
 <tr><td>Transcribe / Resume</td><td class="v"><kbd>F5</kbd></td><td>Starts the job (or the queue). If the open transcript was stopped, carries on from where it stopped.</td></tr>
 <tr><td>Start Again from the Beginning</td><td></td><td>Transcribes the whole file again; the text on screen is replaced, saved files are kept.</td></tr>
 <tr><td>Stop</td><td class="v"><kbd>Esc</kbd></td><td>Stops this file and the rest of the queue, keeping and saving the text done so far.</td></tr>
+<tr><td>Write AI Summary</td><td class="v"><kbd>Ctrl+M</kbd></td><td>Writes the <a href="#summary">AI summary</a> of the transcript on screen (again, if there is one). Only for a complete transcript, and only when <em>Use AI summary</em> is on.</td></tr>
+<tr><td>Stop AI Summary</td><td></td><td>Stops the summary being written; the text so far stays in the AI summary tab. The transcript is not affected.</td></tr>
 <tr><td>Play / Pause</td><td class="v"><kbd>F9</kbd>, <kbd>Space</kbd></td><td>Player. <kbd>F9</kbd> works everywhere; <kbd>Space</kbd> only when the cursor is not in the text. Works while a job runs.</td></tr>
 <tr><td>Replay Sentence</td><td class="v"><kbd>F6</kbd></td><td>Plays the current sentence again (the one before, if pressed at its very start).</td></tr>
 <tr><td>Previous / Next Unsure Line</td><td class="v"><kbd>F7</kbd> / <kbd>F8</kbd></td><td>Selects and plays the previous / next line Whisper was unsure about (amber).</td></tr>
@@ -271,8 +366,9 @@ chose). Logs hold file names and timings, never transcript text, and are kept 7 
 
 <h2 id="menu-options">Options menu</h2>
 <table><tr><th>Item</th><th>Keys</th><th>What it does</th></tr>
-<tr><td>General… / Transcription… / Vocabulary… / Output… / Advanced…</td><td></td><td>Open the Options dialog on that tab (described below).</td></tr>
-<tr><td>Offline Mode</td><td></td><td>Tick: no network call at all; Download buttons are greyed out. Other model locations, Add model from folder and Import still work. Same as <a href="#set-advanced.offline">Advanced &gt; Offline mode</a>.</td></tr>
+<tr><td>General… / Transcription… / Vocabulary… / Output… / Advanced… / AI Summary…</td><td></td><td>Open the Options dialog on that tab (described below).</td></tr>
+<tr><td>Use AI Summary</td><td></td><td>Tick: the AI summary tab is shown and summaries are written (see <a href="#summary">AI summary</a>). Same as <a href="#set-summary.enabled">AI Summary &gt; Use AI summary</a>.</td></tr>
+<tr><td>Offline Mode</td><td></td><td>Tick: no network call at all; Download buttons are greyed out, and the Transcription and AI Summary tabs of Options say so in bold red, next to a <em>Turn Offline Mode off</em> button. Other model locations, Add model from folder and Import still work. Same as <a href="#set-advanced.offline">Advanced &gt; Offline mode</a>.</td></tr>
 <tr><td>Auto-save Transcript</td><td></td><td>Tick: save the session and default formats after each job. Untick: nothing is saved until you save or export. Same as <a href="#set-output.autosave">Output &gt; Auto-save</a>.</td></tr>
 <tr><td>Keep PC Awake During Jobs</td><td></td><td>Stops Windows from sleeping while a job runs (the screen may still turn off).</td></tr>
 <tr><td>Always on Top</td><td></td><td>Keeps the window above other windows, for example while you type minutes in Word.</td></tr>
@@ -320,6 +416,7 @@ defaults</em> asks first and never deletes models, transcripts, vocabulary sets 
 <tr id="set-transcription.threads"><td>CPU threads</td><td><strong>Auto (all cores)</strong> / 1–16</td><td>Fewer threads leave the PC more responsive but make the job slower. Changing it reloads the model.</td></tr>
 <tr id="set-transcription.script_yue"><td>Cantonese script</td><td><strong>Traditional (Hong Kong)</strong> / Traditional (Taiwan) / Simplified</td><td>Chinese characters for Cantonese transcripts. Replacements written in either script still match.</td></tr>
 <tr id="set-transcription.script_zh"><td>Mandarin script</td><td>Traditional (Hong Kong) / Traditional (Taiwan) / <strong>Simplified</strong></td><td>Chinese characters for Mandarin transcripts.</td></tr>
+<tr id="set-transcription.spelling_en"><td>English spelling</td><td><strong>Automatic</strong> / American / British / Canadian / Australian / Hong Kong / As the model writes</td><td>Spelling of English transcripts, their exports and the AI summary. Automatic follows the computer's country or region. Only spelling changes; names and vocabulary terms are kept (<a href="#spelling">details</a>).</td></tr>
 <tr id="set-transcription.download_folder"><td>Model download folder</td><td>Folder · <strong>models</strong> in the program folder</td><td>Where downloaded and copied models go. Models are large (0.1–3 GB each); put them on a drive with space. <em>Change…</em> can move existing models.</td></tr>
 <tr id="set-transcription.locations"><td>Other model locations</td><td>List of folders · <strong>empty</strong></td><td>Folders searched for models that are used where they are (another drive, NAS, USB stick). <em>Refresh</em> searches again; <em>Remove</em> stops using a folder without deleting anything.</td></tr>
 </table></div>
@@ -328,6 +425,9 @@ defaults</em> asks first and never deletes models, transcripts, vocabulary sets 
 memory, plus SenseVoiceSmall when <em>Language</em> is Cantonese or Mandarin. <em>Import model list…</em> / <em>Use built-in list</em> manage the list of models offered. <em>Add model from folder…</em>,
 <em>Import model pack…</em> and <em>Export model pack…</em> bring models from folders or other PCs. Delete removes only models in the download
 folder; models in other locations are never deleted.</p>
+<p><strong>While Offline Mode is on</strong> the Download buttons are greyed out and a warning in bold red, with a warning sign, says
+<em>Download is disabled because Offline Mode is on</em>. Click <em>Turn Offline Mode off</em> next to it to allow downloads at once, or untick
+<a href="#set-advanced.offline">Offline mode</a> on the Advanced tab and press <em>Apply</em>.</p>
 
 <h2 id="opt-vocabulary">Options: Vocabulary</h2>
 <div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
@@ -417,7 +517,7 @@ found anyway: Raw output marks that text <code>(stretch without detected speech)
 </table></div>
 <h3>Network</h3>
 <div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
-<tr id="set-advanced.offline"><td>Offline mode</td><td>Tick · <strong>on once a model is installed</strong></td><td>Blocks every network call; downloads are greyed out. Turn off only to download or update models.</td></tr>
+<tr id="set-advanced.offline"><td>Offline mode</td><td>Tick · <strong>on once a model is installed</strong></td><td>Blocks every network call; downloads are greyed out and the Transcription and AI Summary tabs show a warning with a <em>Turn Offline Mode off</em> button. Turn off only to download or update models.</td></tr>
 <tr id="set-advanced.proxy"><td>Proxy</td><td><strong>System</strong> / None</td><td>For model downloads only. System uses Windows' proxy settings (company networks); None connects directly.</td></tr>
 </table></div>
 <h3>Storage, tools and file types</h3>
@@ -431,6 +531,34 @@ found anyway: Raw output marks that text <code>(stretch without detected speech)
 </table>
 
 <p class="part">Part 4 &middot; More reference</p>
+
+<h2 id="opt-summary">Options: AI Summary</h2>
+<p>Turns the <a href="#summary">AI summary</a> on and sets how summaries are written. The model table at the bottom downloads,
+pauses and deletes the summary models; those buttons act at once, the settings when you press <em>OK</em> or <em>Apply</em>.</p>
+<p>Above the table, <em>Import model list…</em> takes a newer model list file to add or update summary models, and <em>Use built-in list</em>
+goes back to the program's own list. It is the same list file as on the Transcription tab: it holds the speech models and the summary
+models, and importing it here or there does the same. While Offline Mode is on, the same bold red warning and
+<em>Turn Offline Mode off</em> button appear here as on the Transcription tab.</p>
+<div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
+<tr id="set-summary.enabled"><td>Use AI summary</td><td>Tick · <strong>off</strong></td><td>On: the AI summary tab appears and summaries are written. Off: no summary and no tab; transcription works the same either way. Also <em>Options &gt; Use AI Summary</em>.</td></tr>
+<tr id="set-summary.auto"><td>Write the summary automatically</td><td>Tick · <strong>on</strong></td><td>On: the summary starts as soon as a transcript is complete (in a queue, the next file starts after the summary). Off: press <em>Write summary</em> (<kbd>Ctrl+M</kbd>) when you want one.</td></tr>
+<tr id="set-summary.save_file"><td>Save the summary with the transcript</td><td>Tick · <strong>on</strong></td><td>With auto-save on, writes <code>{name}_summary.md</code> next to the transcript. The summary is kept in the session file either way.</td></tr>
+<tr id="set-summary.model"><td>Model</td><td><strong>Automatic</strong> · an installed model</td><td>Automatic: Qwen3-4B-Instruct-2507 with 12 GB of memory or more, otherwise Qwen3-1.7B; when that one is not installed, the next installed model. Larger models write better summaries and are slower.</td></tr>
+<tr id="set-summary.language"><td>Summary language</td><td><strong>Same as the transcript</strong> / English / French / Traditional Chinese / Simplified Chinese</td><td>Same as the transcript: English and French stay so; Cantonese and Mandarin are summarised in written Chinese, in the script chosen for them in Options &gt; Transcription. Choose a language to summarise, for example, a French meeting in English.</td></tr>
+<tr id="set-summary.length"><td>Length</td><td>Brief / <strong>Standard</strong> / Detailed</td><td>Brief: 2–3 sentences and up to 5 points per section. Standard: a paragraph and up to 8. Detailed: two paragraphs and up to 15 points. Longer takes longer to write.</td></tr>
+<tr id="set-summary.sections"><td>Sections</td><td>Summary paragraph, Key points, Decisions, Action items, Open questions · <strong>all</strong></td><td>Untick the sections you do not need; at least one must stay ticked.</td></tr>
+<tr id="set-summary.times"><td>Add the time of each point</td><td>Tick · <strong>on</strong></td><td>Each point ends with the time it was discussed, for example <code>[00:12:40]</code>; click it in the tab to hear that part. Small models sometimes leave a time out.</td></tr>
+<tr id="set-summary.instructions"><td>Extra instructions</td><td>Text · <strong>empty</strong></td><td>Added to the request to the model, for example correct spellings of names and companies, "Use British spelling", or "List action items with their due dates first". Keep it short.</td></tr>
+<tr id="set-summary.temperature"><td>Temperature</td><td>0.0–1.5 · <strong>0.3</strong></td><td>How freely the model words the summary. 0.0–0.3 sticks closely to the transcript; higher values read more naturally but add more things that were not said.</td></tr>
+<tr id="set-summary.context"><td>Context size</td><td><strong>Automatic</strong> / 4,096 / 8,192 / 16,384 / 32,768 tokens</td><td>How much of the transcript the model reads at once. Automatic: 8,192 tokens below 12 GB of memory (about 40 minutes of English speech), otherwise 16,384 (about 80 minutes). Longer meetings are read in parts. A larger context needs more memory and is slower to start.</td></tr>
+<tr id="set-summary.max_tokens"><td>Longest summary</td><td><strong>Follow Length</strong> · 128–4,096 tokens</td><td>The most the model may write (a token is about three quarters of an English word or one Chinese character). Raise it if a detailed summary stops short.</td></tr>
+<tr id="set-summary.threads"><td>CPU threads</td><td><strong>Auto (all cores)</strong> · 1–32</td><td>Fewer threads leave more of the processor for other work but make the summary slower.</td></tr>
+<tr id="set-summary.keep_loaded"><td>Keep the model loaded between summaries</td><td>Tick · <strong>off</strong></td><td>On: saves the loading time when you summarise many files; the model's memory stays in use until you close the program.</td></tr>
+<tr id="set-summary.background"><td>Background priority while summarising</td><td>Tick · <strong>off</strong></td><td>On: other programs stay quick; the summary takes longer. <em>Background priority during a job</em> in General has the same effect.</td></tr>
+<tr id="set-summary.gpu"><td>Use the graphics chip (Mac)</td><td>Tick · <strong>on</strong></td><td>On a Mac: the model runs on the graphics chip (Metal), which is usually faster, when the model and its context fit in the memory macOS lets the graphics chip use; otherwise on the processor, and Raw output says why. Untick it if summaries fail on this Mac. Windows always uses the processor, so the box is greyed out there.</td></tr>
+</table></div>
+<p>The model table shows each model's download size, licence (Apache 2.0) and state, with Download, Pause, Resume and Delete. The
+line above it shows whether the summary engine (llama.cpp, in the <code>llamacpp</code> folder) is complete.</p>
 
 <h2 id="window">Window, statistics and model states</h2>
 <h3>Statistics bar</h3>
@@ -472,6 +600,11 @@ keys</em> is on in <em>System Settings &gt; Keyboard</em>.</li>
 <li><strong>Open with:</strong> <em>File types: Register</em> is Windows only. Open a recording with <kbd>⌘O</kbd> or drag
 it onto the window.</li>
 <li><strong>Keep the Mac awake:</strong> uses macOS's own <code>caffeinate</code> while a job runs.</li>
+<li><strong>AI summary:</strong> the same as on Windows, from version 2.3.1, using the llama.cpp libraries in the
+<code>llamacpp</code> folder. The model runs on the Mac's graphics chip (Metal) when it and its context fit in the memory
+macOS lets the graphics chip use, which is usually faster; otherwise on the processor, and Raw output says
+why. <em>Use the graphics chip (Mac)</em> in Options &gt; AI Summary turns this off. <code>smoke-test.command</code> checks
+that the libraries load.</li>
 <li><strong>Remove:</strong> close the program and move the <code>SecureOfflineTranscriber</code> folder to the Bin. Your
 transcripts stay in <code>Documents/SOT Transcripts</code>.</li>
 </ul>
@@ -485,11 +618,17 @@ transcripts stay in <code>Documents/SOT Transcripts</code>.</li>
 <tr><td>Text invented in silence</td><td>Keep the invented-text filter on, add the phrase to its list; raise the speech threshold to 0.6.</td></tr>
 <tr><td>"Only 25% of this recording … was recognised as speech" (in a queue: <em>Done · little speech found</em>)</td><td>Play the stretches Raw output lists as <em>No text from … to …</em>. If people talk there, go to Options &gt; Advanced &gt; Voice detection: lower <em>Speech threshold</em> (for example to 0.35) and keep <em>Check stretches without speech</em> ticked, or with a Whisper model tick <em>Voice detection off</em>. Turn Noise reduction off too, then use <em>Transcribe &gt; Start Again from the Beginning</em>. A recording with long silences or music can show this warning when nothing is missing.</td></tr>
 <tr><td>Words missing in a quiet recording</td><td>Keep Normalise volume on; lower the speech threshold to 0.35–0.4; try a larger Whisper model or Accurate speed.</td></tr>
+<tr><td>An English word is spelt the wrong way for your country</td><td>Check <em>Options &gt; Transcription &gt; English spelling</em> (Automatic shows the country it found). A word whose spelling depends on its meaning stays as the model wrote it when the sentence does not make the meaning clear: correct it by hand, or add it as a replacement. <em>Edit &gt; Change English Spelling</em> changes an open transcript.</td></tr>
 <tr><td>Names misspelled</td><td>Add them as hotwords (Whisper) or replacements (all models); see <a href="#names">Names from documents</a>.</td></tr>
 <tr><td>Slow on a long file</td><td>Use SenseVoiceSmall or Parakeet, Fast speed, background priority off; Stop and Resume if you need the PC.</td></tr>
 <tr><td>A word repeated where a job was resumed</td><td>The program removes a repeated word at the join (listed in Raw output); correct any that remain by hand.</td></tr>
 <tr><td>Playback is silent</td><td>Check the Windows default output device; playback uses PortAudio. Untick <em>Hear It in the Player</em> if the cleaned audio is too quiet.</td></tr>
 <tr><td>A downloaded model shows "Damaged"</td><td>Delete it and download again; the program checks every file, so a broken download is never used.</td></tr>
+<tr><td>AI summary: "No summary model is installed"</td><td>Download one in <em>Options &gt; AI Summary</em> (turn Offline Mode off first).</td></tr>
+<tr><td>AI summary: "The summary process ended unexpectedly"</td><td>Usually not enough memory. Choose a smaller model (Qwen3-1.7B or Qwen3.5-2B) or a smaller <em>Context size</em>, and close other programs. On a Mac, also try unticking <em>Use the graphics chip (Mac)</em> in Options &gt; AI Summary.</td></tr>
+<tr><td>AI summary: "The AI summary libraries are missing"</td><td>Files in the <code>llamacpp</code> folder were not unzipped, often because antivirus blocked one. Unzip again and run <code>verify-files.bat</code> (on a Mac: <code>verify-files.command</code>); Windows Security &gt; Protection history shows any file it blocked.</td></tr>
+<tr><td>AI summary: wrong decision, task or name</td><td>Click the point's time to hear it, correct it with <em>Edit</em>; add names under <em>Extra instructions</em>; try a 4B model; keep Temperature at 0.3 or lower.</td></tr>
+<tr><td>AI summary in the wrong language</td><td>Set <em>Summary language</em> in Options &gt; AI Summary instead of <em>Same as the transcript</em>.</td></tr>
 </table></div>
 <p>For support, use <em>Options &gt; Advanced &gt; Copy diagnostic summary</em>; it holds no transcript text.</p>
 
@@ -503,6 +642,7 @@ transcripts stay in <code>Documents/SOT Transcripts</code>.</li>
 <tr><td><kbd>Ctrl+F</kbd> / <kbd>F3</kbd> / <kbd>Ctrl+H</kbd></td><td>Find / Find Next / Replace</td></tr>
 <tr><td><kbd>Ctrl+G</kbd></td><td>Go to Time</td></tr>
 <tr><td><kbd>F5</kbd> / <kbd>Esc</kbd></td><td>Transcribe or Resume / Stop</td></tr>
+<tr><td><kbd>Ctrl+M</kbd></td><td>Write AI Summary</td></tr>
 <tr><td><kbd>F9</kbd> (<kbd>Space</kbd> outside the text)</td><td>Play / Pause</td></tr>
 <tr><td><kbd>F6</kbd></td><td>Replay sentence</td></tr>
 <tr><td><kbd>F7</kbd> / <kbd>F8</kbd></td><td>Previous / next unsure line</td></tr>
