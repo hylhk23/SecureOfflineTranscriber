@@ -3,7 +3,7 @@
  "format": 2,
  "list_version": "2026.11.05",
  "min_app_version": "2.1.1",
- "description": "Models offered in Options > Transcription and Options > AI Summary. Edit with build/tools/update-model-list.py; see MODEL-LIST.md.",
+ "description": "Models offered in Options > Transcription, Options > AI Summary and Options > Speakers. Edit with build/tools/update-model-list.py; see MODEL-LIST.md.",
  "recommended": {
   "ram_gb": 12,
   "below": [
@@ -680,6 +680,74 @@
      "name": "gemma-4-E4B-it-Q4_K_M.gguf",
      "size": 4977171584,
      "sha256": "85a896a047553e842f25297ee5b031d64ff30147d9c4af17b1e4b394cd1fab87"
+    }
+   ]
+  }
+ ],
+ "speaker_recommended": [
+  "pyannote-segmentation-3.0-int8",
+  "3dspeaker-campplus-zh-en"
+ ],
+ "speaker_models": [
+  {
+   "id": "pyannote-segmentation-3.0-int8",
+   "name": "pyannote segmentation 3.0 (int8)",
+   "kind": "segmentation",
+   "repo": "csukuangfj/sherpa-onnx-pyannote-segmentation-3-0",
+   "revision": "9403a6902bb58e3d5ae8c7e77c3422de279db2e0",
+   "upstream": "pyannote/segmentation-3.0",
+   "license": "MIT",
+   "license_url": "https://huggingface.co/pyannote/segmentation-3.0",
+   "offered": "Must",
+   "note": "Finds where each voice speaks (who spoke when). Converted to ONNX for sherpa-onnx; quantised to 8-bit.",
+   "files": [
+    {
+     "name": "model.int8.onnx",
+     "size": 1540506,
+     "sha256": "d582f4b4c6b48205de7e0643c57df0df5615a3c176189be3fc461e9d18827b5d"
+    },
+    {
+     "name": "LICENSE",
+     "size": 1061,
+     "sha256": "14d7016ad68e7394d6e6b78d96cc2ae431c905287b89674cfdf021e79e62b8ba"
+    }
+   ]
+  },
+  {
+   "id": "3dspeaker-campplus-zh-en",
+   "name": "3D-Speaker CAM++ voice model (English and Chinese)",
+   "kind": "speaker-embedding",
+   "repo": "csukuangfj/speaker-embedding-models",
+   "revision": "0743f301363dec56491a490f6d6cbc9d67f9a3bf",
+   "upstream": "iic/speech_campplus_sv_zh_en_16k-common_advanced",
+   "license": "Apache-2.0",
+   "license_url": "https://www.modelscope.cn/models/iic/speech_campplus_sv_zh_en_16k-common_advanced",
+   "offered": "Must",
+   "note": "Turns a voice into a voiceprint of 192 numbers. Trained on English and Chinese speech: recommended for English, Cantonese and Mandarin meetings.",
+   "files": [
+    {
+     "name": "3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx",
+     "size": 28281164,
+     "sha256": "aa3cfc16963a10586a9393f5035d6d6b57e98d358b347f80c2a30bf4f00ceba2"
+    }
+   ]
+  },
+  {
+   "id": "3dspeaker-campplus-en",
+   "name": "3D-Speaker CAM++ voice model (English, VoxCeleb)",
+   "kind": "speaker-embedding",
+   "repo": "csukuangfj/speaker-embedding-models",
+   "revision": "0743f301363dec56491a490f6d6cbc9d67f9a3bf",
+   "upstream": "iic/speech_campplus_sv_en_voxceleb_16k",
+   "license": "Apache-2.0",
+   "license_url": "https://www.modelscope.cn/models/iic/speech_campplus_sv_en_voxceleb_16k",
+   "offered": "Should",
+   "note": "Trained on English speech (VoxCeleb). An alternative for English-only meetings; voices saved with one voice model are not matched with the other.",
+   "files": [
+    {
+     "name": "3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx",
+     "size": 29596978,
+     "sha256": "357a834f702b80161e5b981182c038e18553c1f2ca752ed6cec2052365d4129b"
     }
    ]
   }

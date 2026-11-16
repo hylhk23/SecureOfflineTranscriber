@@ -96,6 +96,18 @@ def probe(path):
         info["audio"].append({"index": int(idx), "lang": lang or "", "codec": codec,
                               "rate": int(rate.group(1)) if rate else 0,
                               "channels": ch.group(1).strip() if ch else ""})
+    # tags (2.4.0: a recorder's note that the channels hold different sources), global and per stream
+    info["tags"] = {}
+    in_meta = False
+    for line in err.splitlines():
+        if re.match(r"^\s+Metadata:\s*$", line):
+            in_meta = True
+            continue
+        m = re.match(r"^\s{4,}([^:]+?)\s*: (.*)$", line) if in_meta else None
+        if m and not line.strip().startswith(("Stream #", "Duration:", "Chapter")):
+            info["tags"].setdefault(m.group(1).strip(), m.group(2).strip())
+        else:
+            in_meta = False
     if not info["audio"]:
         msg = err.strip().splitlines()[-1] if err.strip() else "unknown error"
         raise RuntimeError(f"No audio track found ({msg}).")

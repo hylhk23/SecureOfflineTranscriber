@@ -175,6 +175,17 @@ def _mac_listening_ports():
     return ports
 
 
+def _voice_library_line(settings):
+    from . import voicelib
+    path = voicelib.path_for(settings.data_folder())
+    if not os.path.isfile(path):
+        return f"{path} - none saved"
+    lib, problems = voicelib.load(path)
+    n = len(lib["people"])
+    return (f"{path} - {n} {'person' if n == 1 else 'people'} (numbers only, no audio; saved with each person's "
+            "consent; Options > Voice Library deletes them)" + (" - some entries could not be read" if problems else ""))
+
+
 def privacy_report(settings):
     tmp = temp_folder(settings)
     tmp_files = []
@@ -193,8 +204,9 @@ def privacy_report(settings):
         f"Temp folder: {tmp} - " + ("empty" if not tmp_files else f"{len(tmp_files)} file(s); Clear temp now removes them"),
         "Listening network ports: " + ("none" if ports == [] else "unknown" if ports is None
                                        else ", ".join(ports)),
-        "Audio, transcripts and AI summaries never leave this computer. Logs hold file names and timings, never "
-        "transcript text.",
+        f"Voice library (speaker identification): {_voice_library_line(settings)}",
+        "Audio, transcripts, AI summaries and voiceprints never leave this computer. Logs hold file names and timings, "
+        "never transcript text or speaker names.",
     ]
     return "\n".join(lines)
 

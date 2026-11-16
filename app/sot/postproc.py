@@ -226,18 +226,25 @@ def join_text(a, b):
 
 
 def paragraphs(segs, pause=2.0, max_chars=600):
-    """Group segments into paragraphs at pauses or length (Options > Output)."""
+    """Group segments into paragraphs at pauses or length (Options > Output), and (2.4.0) where the speaker
+    changes; a paragraph takes its segments' speaker ("spk") and is marked unsure if any of them is."""
     paras = []
     for i, s in enumerate(segs):
-        if paras and s["start"] - paras[-1]["end"] < pause and len(paras[-1]["text"]) + len(s["text"]) <= max_chars:
+        if paras and s["start"] - paras[-1]["end"] < pause and len(paras[-1]["text"]) + len(s["text"]) <= max_chars \
+                and s.get("spk") == paras[-1].get("spk"):
             p = paras[-1]
             p["text"] = join_text(p["text"], s["text"])
             p["end"] = s["end"]
             p["segs"].append(i)
             p["flag"] = p["flag"] or s.get("flag", "")
+            if s.get("spk_unsure"):
+                p["spk_unsure"] = True
         else:
             p = {"start": s["start"], "end": s["end"], "text": s["text"], "segs": [i], "flag": s.get("flag", ""),
                  "lang": s.get("lang", ""), "subs": []}
+            if s.get("spk"):
+                p["spk"] = s["spk"]
+                p["spk_unsure"] = bool(s.get("spk_unsure"))
             paras.append(p)
         # where this segment's text sits in the paragraph, for following playback sentence by sentence
         c1 = len(p["text"])

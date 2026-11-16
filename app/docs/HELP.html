@@ -34,16 +34,16 @@ td.v { white-space:nowrap; }
 </style>
 </head>
 <body>
-<header><div><h1>Secure Offline Transcriber 2.3.1</h1>
-<p class="sub">Time-stamped transcripts of recorded audio and video, made entirely on this PC. English, French, Cantonese and Mandarin. Optional AI summary, also written on this PC.</p></div></header>
+<header><div><h1>Secure Offline Transcriber 2.4.0</h1>
+<p class="sub">Time-stamped transcripts of recorded audio and video, made entirely on this PC. English, French, Cantonese and Mandarin. Optional AI summary and speaker identification, also done on this PC.</p></div></header>
 <nav>
 <b>Using the program</b>
 <a href="#start">Getting started</a><a href="#transcribe">Transcribe</a><a href="#resume">Stop and resume</a><a href="#proofread">Proofread</a>
-<a href="#names">Names from documents</a><a href="#spelling">English spelling</a><a href="#noise">Noisy recordings</a><a href="#save">Save and export</a><a href="#summary">AI summary</a><a href="#models">Models</a>
+<a href="#names">Names from documents</a><a href="#spelling">English spelling</a><a href="#noise">Noisy recordings</a><a href="#save">Save and export</a><a href="#summary">AI summary</a><a href="#speakers">Speakers</a><a href="#models">Models</a>
 <a href="#privacy">Privacy</a><a href="#choose">Which settings to change</a>
 <b>Reference</b>
 <a href="#menu-file">File menu</a><a href="#menu-edit">Edit menu</a><a href="#menu-transcribe">Transcribe menu</a><a href="#menu-options">Options menu</a><a href="#menu-help">Help menu</a>
-<a href="#opt-general">Options: General</a><a href="#opt-transcription">Transcription</a><a href="#opt-vocabulary">Vocabulary</a><a href="#opt-output">Output</a><a href="#opt-advanced">Advanced</a><a href="#opt-summary">AI Summary</a>
+<a href="#opt-general">Options: General</a><a href="#opt-transcription">Transcription</a><a href="#opt-vocabulary">Vocabulary</a><a href="#opt-output">Output</a><a href="#opt-advanced">Advanced</a><a href="#opt-summary">AI Summary</a><a href="#opt-speakers">Speakers</a>
 <a href="#window">Window, statistics and model states</a><a href="#trouble">Troubleshooting</a><a href="#keys">Keyboard shortcuts</a><a href="#mac">On a Mac</a>
 </nav>
 <main>
@@ -256,6 +256,52 @@ small models make more mistakes when combining notes; the 4B models and a larger
 (<code>.sot.json</code>), so <em>File &gt; Open Transcript</em> brings it back. Every saved summary ends with a line naming the model
 that wrote it. A summary is written only for a complete transcript: after <em>Stop</em>, resume the transcription first.</p>
 
+<h2 id="speakers">Speakers: who said what</h2>
+<p>New in 2.4.0. Speaker identification is a step <strong>after</strong> transcribing: it finds who spoke when and starts each
+paragraph with the speaker, for example <code>[00:12:40] ■ Alice Chan: The forecast is four percent under plan.</code>
+Everything happens on this PC. Two small models do the work; download them once in <a href="#opt-speakers">Options &gt; Speakers</a>
+(<em>Download recommended set</em>, about 30 MB).</p>
+<ol>
+<li>Transcribe the recording as usual.</li>
+<li>Choose <em>Transcribe &gt; Identify Speakers…</em> (<kbd>Ctrl+D</kbd>). Say how many people speak if you know (it helps), and
+whether the file keeps you and the others on separate channels (see below). Press <em>Identify speakers</em>. A one-hour meeting takes
+a few minutes; the transcript stays readable meanwhile, and <kbd>Esc</kbd> stops it.</li>
+<li>The <strong>Speakers</strong> panel appears beside the transcript: one row per speaker, with a marker (a shape and a colour),
+the name, how much they spoke, a play button that plays a few seconds of their voice, and a <em>Remember</em> box.</li>
+<li>Type each person's name in the panel. The name changes in every paragraph, in exports and in the AI summary.</li>
+<li>Correct single paragraphs: click the name at the start of a paragraph (or right-click the paragraph) and choose
+<em>Change speaker</em>, or put the cursor in it and press <kbd>Alt+1</kbd> to <kbd>Alt+9</kbd> for the first nine speakers of the
+panel. <em>Merge…</em> joins two speakers who are the same person.</li>
+</ol>
+<p>A paragraph marked <strong>(?)</strong> may belong to someone else: people talked over each other, or the sentence was very short.
+Paragraphs break where the speaker changes; a sentence in which two people spoke goes to the one who spoke most of it.</p>
+<h3>Two-channel recordings</h3>
+<p>A recording with your microphone on the <strong>left</strong> channel and the computer audio (the other participants of a Zoom or
+Teams call) on the <strong>right</strong> is labelled most reliably: the louder side decides whether you or the others spoke, and only
+the right channel is split into other speakers. Voice Recorder Pro 1.0.3 makes such files (<em>Options &gt; Format &gt; Channels &gt;
+Separate</em>) and marks them; the program finds the mark and chooses <em>Separate</em> for you. Use a headset when recording, so the
+call is not also picked up by your microphone.</p>
+<h3>The voice library</h3>
+<p>With a person's agreement you can save their <strong>voiceprint</strong>: 192 numbers that describe their voice, made from the
+recording. Later recordings then get their name automatically. Tick <em>Remember</em> next to the speaker, then press <em>Save
+voices…</em>; you confirm that the person agreed, and can add a note such as their organisation. A voice can be saved right after
+<em>Identify Speakers</em>, once the person has a name and spoke at least 30 seconds (setting). Saving more recordings of the same
+person makes matching more reliable.</p>
+<ul>
+<li>A voiceprint is <strong>biometric personal data</strong>. Save one only with the person's agreement; privacy laws in Canada, Hong Kong
+and elsewhere expect express consent for biometric data.</li>
+<li>The library is the file <code>data\voices.json</code>. It holds numbers only, never audio, and never leaves the computer.
+<em>Options &gt; Voice Library…</em> shows everyone saved, with the date of consent, and deletes any entry at once.</li>
+<li>A name is given only when one saved person is clearly closest; otherwise the speaker stays "Speaker 2" and you name them.
+Always check names, especially between people with similar voices.</li>
+<li>Voiceprints belong to the voice model that made them. If you choose another voice model in Options, people must be saved again.</li>
+</ul>
+<p>Speaker names go into every export: text and Word (<code>Alice Chan:</code> before the paragraph), Markdown, SRT subtitles
+(<code>Alice Chan:</code> at the start of a cue), WebVTT (its voice tag, <code>&lt;v Alice Chan&gt;</code>), JSON (a
+<code>speaker</code> for each segment) and CSV (a <code>speaker</code> column). The AI summary uses them for who said, decided or
+will do what; write the summary again after naming the speakers. The transcript file (<code>.sot.json</code>) keeps the names but
+never voiceprints.</p>
+
 <h2 id="models">Models</h2>
 <p><em>Options &gt; Transcription</em> holds the model manager. Each model is downloaded once from Hugging Face at a fixed version, and every
 file is checked by SHA-256; after that everything runs offline.</p>
@@ -293,6 +339,9 @@ chose). Logs hold file names and timings, never transcript text, and are kept 7 
 only network use is the model download you start in <em>Options &gt; AI Summary</em>. On Windows the summary engine
 (llama.cpp) is shipped without its network component. On a Mac that component is part of llama.cpp's libraries, so it is
 in the package, but it connects only to a server address it is given, and the program never gives it one.</li>
+<li>Speaker identification runs on this PC. Voiceprints are saved only when you confirm that the person agreed, only in
+<code>data\voices.json</code>, as numbers without audio; transcripts, exports and logs never contain them, and logs never
+contain names (<a href="#speakers">details</a>).</li>
 <li><em>Options &gt; Advanced &gt; Privacy check</em> lists all of this for your PC.</li>
 </ul>
 
@@ -341,6 +390,9 @@ in the package, but it connects only to a server address it is given, and the pr
 <tr><td>Apply Vocabulary Replacements</td><td></td><td>Runs the active set's replacements on the open transcript, for example after adding a new one.</td></tr>
 <tr><td>Change English Spelling…</td><td></td><td>Writes the English words of the open transcript (and its AI summary) in American, British, Canadian, Australian or Hong Kong spelling (<a href="#spelling">details</a>). The setting in Options is not changed.</td></tr>
 <tr><td>Go to Time…</td><td class="v"><kbd>Ctrl+G</kbd></td><td>Moves the player and the transcript to a time (hh:mm:ss or mm:ss).</td></tr>
+<tr><td>Rename Speaker…</td><td></td><td>Changes a speaker's name in every paragraph (the speaker of the paragraph at the cursor, or one you pick). Same as typing in the Speakers panel (<a href="#speakers">details</a>).</td></tr>
+<tr><td>Change Speaker of Paragraph…</td><td class="v"><kbd>Alt+1</kbd> … <kbd>Alt+9</kbd></td><td>Gives the paragraph at the cursor to another speaker, a new speaker, or no speaker. Also by clicking the name at the start of a paragraph, or right-clicking it.</td></tr>
+<tr><td>Merge Speakers…</td><td></td><td>Joins two speakers who are the same person: the paragraphs of one get the other's name.</td></tr>
 </table>
 
 <h2 id="menu-transcribe">Transcribe menu</h2>
@@ -350,6 +402,9 @@ in the package, but it connects only to a server address it is given, and the pr
 <tr><td>Stop</td><td class="v"><kbd>Esc</kbd></td><td>Stops this file and the rest of the queue, keeping and saving the text done so far.</td></tr>
 <tr><td>Write AI Summary</td><td class="v"><kbd>Ctrl+M</kbd></td><td>Writes the <a href="#summary">AI summary</a> of the transcript on screen (again, if there is one). Only for a complete transcript, and only when <em>Use AI summary</em> is on.</td></tr>
 <tr><td>Stop AI Summary</td><td></td><td>Stops the summary being written; the text so far stays in the AI summary tab. The transcript is not affected.</td></tr>
+<tr><td>Identify Speakers…</td><td class="v"><kbd>Ctrl+D</kbd></td><td>Finds who spoke when in the open transcript and labels each paragraph (<a href="#speakers">Speakers</a>). Needs the speaker models (Options &gt; Speakers) and a transcript.</td></tr>
+<tr><td>Stop Speaker Identification</td><td class="v"><kbd>Esc</kbd></td><td>Stops it at once; the transcript is unchanged.</td></tr>
+<tr><td>Clear Speaker Labels</td><td></td><td>Removes every speaker label and name from the open transcript; the text is kept.</td></tr>
 <tr><td>Play / Pause</td><td class="v"><kbd>F9</kbd>, <kbd>Space</kbd></td><td>Player. <kbd>F9</kbd> works everywhere; <kbd>Space</kbd> only when the cursor is not in the text. Works while a job runs.</td></tr>
 <tr><td>Replay Sentence</td><td class="v"><kbd>F6</kbd></td><td>Plays the current sentence again (the one before, if pressed at its very start).</td></tr>
 <tr><td>Previous / Next Unsure Line</td><td class="v"><kbd>F7</kbd> / <kbd>F8</kbd></td><td>Selects and plays the previous / next line Whisper was unsure about (amber).</td></tr>
@@ -366,12 +421,14 @@ in the package, but it connects only to a server address it is given, and the pr
 
 <h2 id="menu-options">Options menu</h2>
 <table><tr><th>Item</th><th>Keys</th><th>What it does</th></tr>
-<tr><td>General… / Transcription… / Vocabulary… / Output… / Advanced… / AI Summary…</td><td></td><td>Open the Options dialog on that tab (described below).</td></tr>
+<tr><td>General… / Transcription… / Vocabulary… / Output… / Advanced… / AI Summary… / Speakers…</td><td></td><td>Open the Options dialog on that tab (described below).</td></tr>
+<tr><td>Voice Library…</td><td></td><td>Shows the people whose voiceprints you saved, with the date of consent; renames, merges, exports, imports and deletes them (<a href="#speakers">details</a>).</td></tr>
 <tr><td>Use AI Summary</td><td></td><td>Tick: the AI summary tab is shown and summaries are written (see <a href="#summary">AI summary</a>). Same as <a href="#set-summary.enabled">AI Summary &gt; Use AI summary</a>.</td></tr>
 <tr><td>Offline Mode</td><td></td><td>Tick: no network call at all; Download buttons are greyed out, and the Transcription and AI Summary tabs of Options say so in bold red, next to a <em>Turn Offline Mode off</em> button. Other model locations, Add model from folder and Import still work. Same as <a href="#set-advanced.offline">Advanced &gt; Offline mode</a>.</td></tr>
 <tr><td>Auto-save Transcript</td><td></td><td>Tick: save the session and default formats after each job. Untick: nothing is saved until you save or export. Same as <a href="#set-output.autosave">Output &gt; Auto-save</a>.</td></tr>
 <tr><td>Keep PC Awake During Jobs</td><td></td><td>Stops Windows from sleeping while a job runs (the screen may still turn off).</td></tr>
 <tr><td>Always on Top</td><td></td><td>Keeps the window above other windows, for example while you type minutes in Word.</td></tr>
+<tr><td>Show Speakers Panel</td><td></td><td>Tick: the Speakers panel appears beside the transcript when it has speakers. Same as <a href="#set-speakers.show_panel">Speakers &gt; Show the Speakers panel</a>.</td></tr>
 <tr><td>All Settings…</td><td class="v"><kbd>Ctrl+,</kbd></td><td>Opens the Options dialog on the tab you used last.</td></tr>
 </table>
 
@@ -560,6 +617,29 @@ models, and importing it here or there does the same. While Offline Mode is on, 
 <p>The model table shows each model's download size, licence (Apache 2.0) and state, with Download, Pause, Resume and Delete. The
 line above it shows whether the summary engine (llama.cpp, in the <code>llamacpp</code> folder) is complete.</p>
 
+<h2 id="opt-speakers">Options: Speakers</h2>
+<p>How <a href="#speakers">speakers</a> are identified and named, the voice library, and the two speaker models. The model table downloads,
+pauses and deletes the models at once; the settings apply when you press <em>OK</em> or <em>Apply</em>.</p>
+<div class="table-wrap"><table><tr><th>Setting</th><th>Values</th><th>What it does and what to consider</th></tr>
+<tr id="set-speakers.auto"><td>Identify speakers automatically when a transcript is complete</td><td>Tick · <strong>off</strong></td><td>On: every complete transcript (also in a queue) gets its speakers, then the AI summary is written. Speakers whose voices are in the library get their names; you name the others. Off: use <em>Transcribe &gt; Identify Speakers</em> when you want it.</td></tr>
+<tr id="set-speakers.count"><td>Number of speakers</td><td><strong>Automatic</strong> · 2–10</td><td>How many people usually speak, everyone included. A known number gives better results; Automatic decides from the voices (see the next setting). You can change it each time in the Identify Speakers window.</td></tr>
+<tr id="set-speakers.threshold"><td>Telling voices apart</td><td>0.30–0.90 · <strong>0.50</strong></td><td>Used when the number is Automatic: how different two voices must be to count as two people. Higher finds fewer speakers (two similar voices may be joined); lower finds more (one person may be split). Merge in the Speakers panel fixes a split.</td></tr>
+<tr id="set-speakers.channels"><td>Two-channel recordings</td><td><strong>Use the recorder's channel tag</strong> / Always: left = me, right = others / Never</td><td>A stereo file with your microphone left and the computer audio right is labelled by which side is louder. With the default, files from Voice Recorder Pro's <em>Separate</em> setting are recognised by their tag; choose <em>Always</em> for such files from another recorder. Mono files are never split.</td></tr>
+<tr id="set-speakers.left_name"><td>Name for the left channel</td><td>Text · <strong>Me</strong></td><td>The name given to the left channel (your microphone) of a two-channel recording, for example your own name.</td></tr>
+<tr id="set-speakers.threads"><td>CPU threads</td><td><strong>Auto (all cores)</strong> · 1–32</td><td>Fewer threads leave more of the processor for other work but make identification slower.</td></tr>
+<tr id="set-speakers.use_library"><td>Name speakers whose voices are in my voice library</td><td>Tick · <strong>on</strong></td><td>Each speaker's voice is compared with the people you saved (made with the same voice model). A name is given only when one person is clearly closest.</td></tr>
+<tr id="set-speakers.strictness"><td>Matching</td><td><strong>Normal</strong> / Strict</td><td>How alike a voice must be to a saved person to give that name. Strict gives fewer names and fewer wrong ones; use it when several saved people sound alike.</td></tr>
+<tr id="set-speakers.min_save_s"><td>Speech needed to save a voice</td><td>10–600 s · <strong>30 s</strong></td><td>A voice can be saved only when the person spoke at least this long in the recording. Short samples match poorly later.</td></tr>
+<tr id="set-speakers.in_exports"><td>Show speaker names in exports and give them to the AI summary</td><td>Tick · <strong>on</strong></td><td>Off: exports and the AI summary leave the names out; the transcript on screen keeps them.</td></tr>
+<tr id="set-speakers.label_style"><td>Label style</td><td><strong>Name: text</strong> / [Name] text</td><td>How the speaker is written before each paragraph, on screen and in text, Word and Markdown exports.</td></tr>
+<tr id="set-speakers.show_panel"><td>Show the Speakers panel beside the transcript</td><td>Tick · <strong>on</strong></td><td>Off hides the panel; names can still be changed with Edit &gt; Rename Speaker. Also <em>Options &gt; Show Speakers Panel</em>.</td></tr>
+<tr id="set-speakers.voice_model"><td>Voice model</td><td><strong>Automatic</strong> · an installed voice model</td><td>Automatic: the recommended model (3D-Speaker CAM++, English and Chinese). The English-only CAM++ model is an alternative for English meetings. Voices in the library are matched only with the model that made them, so changing the model means saving people again.</td></tr>
+</table></div>
+<p>The model table lists <strong>pyannote segmentation 3.0</strong> (1.5 MB, MIT licence: finds where each voice speaks) and the
+<strong>3D-Speaker CAM++</strong> voice models (28–30 MB, Apache 2.0: make voiceprints). Both kinds run on the processor with
+sherpa-onnx, the library the program already uses for SenseVoiceSmall and Parakeet. <em>Voice Library…</em> opens the list of saved
+voices.</p>
+
 <h2 id="window">Window, statistics and model states</h2>
 <h3>Statistics bar</h3>
 <p>Example: <code>Time 00:00:25 · Audio 00:13:59 · Tokens in 7,491 (speech 7,319, text 172) / out 1,646 · Speed 33.2× real time,
@@ -643,6 +723,8 @@ transcripts stay in <code>Documents/SOT Transcripts</code>.</li>
 <tr><td><kbd>Ctrl+G</kbd></td><td>Go to Time</td></tr>
 <tr><td><kbd>F5</kbd> / <kbd>Esc</kbd></td><td>Transcribe or Resume / Stop</td></tr>
 <tr><td><kbd>Ctrl+M</kbd></td><td>Write AI Summary</td></tr>
+<tr><td><kbd>Ctrl+D</kbd></td><td>Identify Speakers</td></tr>
+<tr><td><kbd>Alt+1</kbd> … <kbd>Alt+9</kbd></td><td>Give the paragraph at the cursor to speaker 1–9 of the Speakers panel</td></tr>
 <tr><td><kbd>F9</kbd> (<kbd>Space</kbd> outside the text)</td><td>Play / Pause</td></tr>
 <tr><td><kbd>F6</kbd></td><td>Replay sentence</td></tr>
 <tr><td><kbd>F7</kbd> / <kbd>F8</kbd></td><td>Previous / next unsure line</td></tr>

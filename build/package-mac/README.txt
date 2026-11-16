@@ -1,11 +1,33 @@
-Secure Offline Transcriber 2.3.1 - portable edition for macOS (Apple silicon)
+Secure Offline Transcriber 2.4.0 - portable edition for macOS (Apple silicon)
 ================================================================================
 
 Offline speech-to-text: time-stamped transcripts from recorded audio and video files
 (WAV, MP3, M4A, MP4, MKV and more), processed entirely on this Mac. English, French,
 Cantonese and Mandarin. No installation, no account, no internet needed after a model
-is downloaded. Optional AI summary of each transcript, also written on this Mac.
+is downloaded. Optional AI summary of each transcript and speaker identification,
+also done on this Mac.
 Same program, version, menus and settings as the Windows edition.
+
+WHAT'S NEW IN 2.4.0
+-------------------
+- Speaker identification (optional): after transcribing, Transcribe > Identify Speakers
+  (Ctrl+D) finds who spoke when, on this Mac, and starts each paragraph with the speaker:
+  a marker, the name and a colon. Type names in the new Speakers panel beside the
+  transcript; a name changes everywhere. Click a name in the transcript, or press Option+1
+  to Option+9, to give one paragraph to another speaker. A paragraph marked (?) may belong
+  to someone else.
+- Two small models do the work (about 30 MB, downloaded once in Options > Speakers):
+  pyannote segmentation 3.0 (MIT licence) and the 3D-Speaker CAM++ voice model
+  (Apache 2.0). They run with the sherpa-onnx library the program already uses.
+- Two-channel recordings (Voice Recorder Pro 1.0.3, Format > Channels > Separate):
+  the left channel is you, the right channel the other participants; the louder side
+  decides each sentence. The recorder's channel tag is found automatically.
+- Voice library (Options > Voice Library): with a person's agreement, save their
+  voiceprint (192 numbers, no audio) so later recordings get their name automatically.
+  It stays on this Mac, in data/voices.json; delete any entry at any time.
+- Exports (text, Word, Markdown, subtitles, JSON, CSV) and the AI summary use the names.
+- Options > Speakers: identify automatically after transcribing, number of speakers,
+  two-channel handling, voice library matching and the speaker models.
 
 WHAT'S NEW IN 2.3.1
 -------------------

@@ -17,7 +17,8 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QFile
                                QSizePolicy)
 
 from .. import APP_NAME, APP_TITLE, SESSION_EXT, VERSION, audioproc, exporters, media, paths, postproc, session, stats, system
-from .. import spelling
+from .. import speakers as spk
+from .. import spelling, voicelib
 from .. import summary as summ
 from ..modelmgr import LANG_NAMES, human_size, ram_gb
 from ..summaryworker import SummaryWorker
@@ -26,10 +27,13 @@ from .dialogs import (AboutDialog, ExportDialog, FindReplaceDialog, FirstRunDial
                       ShortcutsDialog, file_properties_text, parse_time)
 from .options import HOTWORD_LIMIT, LANGS, OptionsDialog, run_with_progress
 from .player import Player
+from .speakerui import (DEFAULT_NAME, ConsentDialog, IdentifyDialog, SpeakersPanel, VoiceLibraryDialog,
+                        detail_text, split_default)
 from .summaryview import SummaryView, to_html
 from .transcript import TranscriptEdit
 
 SUMMARY_TAB = 5  # Options > AI Summary
+SPEAKERS_TAB = 6  # Options > Speakers (2.4.0)
 
 log = logging.getLogger("window")
 MEDIA_FILTER = "Audio and video (*.wav *.mp3 *.m4a *.aac *.flac *.ogg *.opus *.wma *.mp4 *.mkv *.mov *.avi *.webm);;All files (*)"
@@ -74,9 +78,15 @@ class MainWindow(QMainWindow):
         self.summary = None       # {"text", "model", "language", "created", "stats", ...} of the AI summary on screen
         self.sjob = None          # the AI summary being written
         self.summary_modified = False
+        self.speakers = {}        # speaker id -> {"name", "person", "level", "score", "centroid", ...} (2.4.0)
+        self.speaker_run = {}     # how the speakers on screen were found (models, channels, date)
+        self.spjob = None         # speaker identification running in the worker
         self.sworker = SummaryWorker(settings.data_folder())
         self._build_ui()
         self._build_menus()
+        for n in range(1, 10):  # Alt+1..Alt+9: the paragraph at the cursor gets the n-th speaker of the panel
+            sc = QShortcut(QKeySequence(f"Alt+{n}"), self)
+            sc.activated.connect(lambda n=n: self.set_speaker_by_number(n))
         # Windows cannot replace a loaded model's files
         self.manager.before_update = lambda: (self.worker.unload(), self.sworker.unload())
         self.player = Player()
@@ -215,7 +225,22 @@ class MainWindow(QMainWindow):
         self.summary_view.edited.connect(self._summary_edited)
         self.summary_view.b_edit.toggled.connect(self._summary_edit_toggled)
         self.tabs.currentChanged.connect(self._tab_changed)
-        v.addWidget(self.tabs, 1)
+        from PySide6.QtWidgets import QSplitter
+        self.split = QSplitter(Qt.Horizontal)
+        self.split.addWidget(self.tabs)
+        self.spk_panel = SpeakersPanel()
+        self.spk_panel.rename.connect(self.rename_speaker)
+        self.spk_panel.play.connect(self.play_speaker)
+        self.spk_panel.merge_requested.connect(self.merge_speakers)
+        self.spk_panel.save_requested.connect(self.save_voices)
+        self.spk_panel.identify_requested.connect(self.identify_speakers)
+        self.split.addWidget(self.spk_panel)
+        self.split.setStretchFactor(0, 3)
+        self.split.setStretchFactor(1, 1)
+        self.spk_panel.setVisible(False)
+        self.editor.speaker_clicked.connect(self._speaker_menu)
+        self.editor.context_hook = self._speaker_context
+        v.addWidget(self.split, 1)
         # ---- status line
         srow = QHBoxLayout()
         self.stage_label = QLabel("Ready")
@@ -291,6 +316,10 @@ class MainWindow(QMainWindow):
         self.a_apply_vocab = self._act(m, "Apply Vocabulary &Replacements", self.apply_vocab)
         self.a_spelling = self._act(m, "Change English &Spelling…", self.change_spelling)
         self._act(m, "&Go to Time…", self.go_to_time, "Ctrl+G")
+        m.addSeparator()
+        self.a_rename_spk = self._act(m, "Re&name Speaker…", lambda: self.rename_speaker_dialog())
+        self.a_change_spk = self._act(m, "C&hange Speaker of Paragraph…", lambda: self.change_paragraph_speaker())
+        self.a_merge_spk = self._act(m, "&Merge Speakers…", lambda: self.merge_speakers())
         for a in (self.a_cut, self.a_copy, self.a_paste, self.a_selall, self.a_undo, self.a_redo):
             a.setShortcutContext(Qt.WidgetWithChildrenShortcut)  # let the text widgets handle their own keys
         # Transcribe
@@ -301,6 +330,9 @@ class MainWindow(QMainWindow):
         m.addSeparator()
         self.a_sum_go = self._act(m, "Write AI &Summary", lambda: self.start_summary(), "Ctrl+M")
         self.a_sum_stop = self._act(m, "Stop AI Su&mmary", self.stop_summary)
+        self.a_spk_go = self._act(m, "&Identify Speakers…", lambda: self.identify_speakers(), "Ctrl+D")
+        self.a_spk_stop = self._act(m, "Stop Speaker Identi&fication", self.stop_speakers)
+        self.a_spk_clear = self._act(m, "&Clear Speaker Labels", self.clear_speaker_labels)
         m.addSeparator()
         self.a_play = self._act(m, "&Play / Pause", self.play_pause, "F9")
         self.a_replay = self._act(m, "&Replay Sentence", self.replay_sentence, "F6")
@@ -358,8 +390,11 @@ class MainWindow(QMainWindow):
         self._act(m, "&Add Files to Queue…", self.add_to_queue)
         # Options
         m = mb.addMenu("&Options")
-        for i, name in enumerate(["General", "Transcription", "Vocabulary", "Output", "Advanced", "AI Summary"]):
-            self._act(m, f"&{name}…" if name != "AI Summary" else "AI S&ummary…", lambda _=False, t=i: self.options(t))
+        for i, name in enumerate(["General", "Transcription", "Vocabulary", "Output", "Advanced", "AI Summary",
+                                  "Speakers"]):
+            label = {"AI Summary": "AI S&ummary…", "Speakers": "S&peakers…"}.get(name, f"&{name}…")
+            self._act(m, label, lambda _=False, t=i: self.options(t))
+        self._act(m, "&Voice Library…", self.voice_library)
         m.addSeparator()
         self.a_use_summary = self._act(m, "Use AI Su&mmary", lambda on: self._set_quick("summary.enabled", on),
                                        checkable=True)
@@ -368,6 +403,8 @@ class MainWindow(QMainWindow):
         self.a_awake = self._act(m, "&Keep PC Awake During Jobs",
                                  lambda on: self._set_quick("general.keep_awake", on), checkable=True)
         self.a_top = self._act(m, "Always on &Top", self._toggle_top, checkable=True)
+        self.a_spk_panel = self._act(m, "Show Speakers Pa&nel", lambda on: self._set_quick("speakers.show_panel", on),
+                                     checkable=True)
         m.addSeparator()
         self._act(m, "All &Settings…", lambda: self.options(self.settings.get("general.last_options_tab")), "Ctrl+,")
         # Help
@@ -435,7 +472,8 @@ class MainWindow(QMainWindow):
         self._sync_summary_tab()
         for a, on in ((self.a_use_summary, s.get("summary.enabled")),
                       (self.a_offline, s.get("advanced.offline")), (self.a_autosave, s.get("output.autosave") != "off"),
-                      (self.a_awake, s.get("general.keep_awake")), (self.a_top, s.get("general.always_on_top"))):
+                      (self.a_awake, s.get("general.keep_awake")), (self.a_top, s.get("general.always_on_top")),
+                      (self.a_spk_panel, s.get("speakers.show_panel"))):
             a.blockSignals(True)
             a.setChecked(bool(on))
             a.blockSignals(False)
@@ -444,6 +482,10 @@ class MainWindow(QMainWindow):
             self.setWindowFlag(Qt.WindowStaysOnTopHint, top)
             self.show()
         apply_theme(s.get("general.theme"))
+        self.editor.label_style = s.get("speakers.label_style")
+        if self.speakers:
+            self.editor.refresh_labels()
+        self.refresh_speaker_panel()
         self.update_go_label()
 
     def _set_quick(self, key, value):
@@ -626,6 +668,9 @@ class MainWindow(QMainWindow):
             self.enqueue(files)
 
     def open_path(self, path, keep_text=False):
+        if self.spjob:
+            self.status_msg("Speakers are being identified. Wait for it, or stop it (Esc), then open the file.")
+            return False
         if self.job:
             self.status_msg("Wait for the job to finish, or add the file to the queue.")
             self.enqueue([path])
@@ -686,11 +731,14 @@ class MainWindow(QMainWindow):
         self.summary = None
         self.summary_modified = False
         self.summary_view.clear()
+        self.speakers, self.speaker_run = {}, {}
+        self.editor.speaker_names, self.editor.speaker_order = {}, []
+        self.refresh_speaker_panel()
         if self.settings.get("summary.enabled") and self.settings.get("summary.auto"):
             self.summary_view.set_state("empty", "The summary is written when the transcript is complete.")
 
     def close_file(self):
-        if self.job:
+        if self.job or self.spjob:
             self.status_msg("Stop the job first.")
             return
         if not self.confirm_unsaved() or not self.confirm_stop_summary():
@@ -799,6 +847,9 @@ class MainWindow(QMainWindow):
         self.stop() if self.job else self.transcribe()
 
     def transcribe(self):
+        if self.spjob:
+            self.status_msg("Speakers are being identified. Wait for it, or stop it (Esc).")
+            return
         if self.job or not self.confirm_stop_summary():
             return
         waiting = [q for q in self.queue if q["status"] == "Waiting"]
@@ -967,6 +1018,9 @@ class MainWindow(QMainWindow):
         return True
 
     def stop(self):
+        if self.spjob:
+            self.stop_speakers()
+            return
         if not self.job:
             return
         self.stop_all = True
@@ -985,6 +1039,14 @@ class MainWindow(QMainWindow):
                 if not self.sworker.alive():
                     self._summary_failed("The summary process ended unexpectedly (often: not enough memory for the "
                                          "model). Choose a smaller model or context size in Options > AI Summary.")
+        if self.spjob:
+            for ev in self.worker.poll():
+                self._speaker_event(ev)
+                if not self.spjob:
+                    break
+            if self.spjob and not self.worker.alive():
+                self._speakers_failed("The speaker identification process ended unexpectedly (often: not enough "
+                                      "memory). The transcript is unchanged.")
         if self.job:
             for ev in self.worker.poll():
                 self._event(ev)
@@ -1180,6 +1242,17 @@ class MainWindow(QMainWindow):
         if cancelled and self.settings.get("summary.enabled"):
             self.summary_view.set_state("empty", "The transcript is not complete, so no summary was written. "
                                                  "Resume it (F5) first.")
+        if not cancelled and self.settings.get("speakers.auto") and not (q and self.stop_all) \
+                and self.speaker_models()[0]:
+            if self.identify_speakers(auto=True, qitem=q, low_note=low_note):
+                if q:
+                    q["status"] = "Done · identifying speakers"
+                    self._queue_status(q)
+                return  # the summary and the queue carry on when the speakers are identified
+        self._after_transcript(q, low_note, cancelled)
+
+    def _after_transcript(self, q, low_note, cancelled=False):
+        """After a transcript (and its speakers, 2.4.0): the automatic summary, then the next file of the queue."""
         if not cancelled and self.settings.get("summary.enabled") and self.settings.get("summary.auto") \
                 and not (q and self.stop_all):
             if self.start_summary(auto=True, qitem=q):
@@ -1314,7 +1387,8 @@ class MainWindow(QMainWindow):
                 for i in segs:
                     sg = self.segments[i]
                     out.append({"start": sg["start"], "end": sg["end"], "text": sg["text"],
-                                "lang": sg.get("lang", ""), "flag": sg.get("flag", "")})
+                                "lang": sg.get("lang", ""), "flag": sg.get("flag", ""), "spk": b.get("spk"),
+                                "spk_unsure": b.get("spk_unsure")})
             else:
                 out.append(b)
         return out
@@ -1371,7 +1445,7 @@ class MainWindow(QMainWindow):
                 "duration": info.get("duration", 0), "language": lang, "language_name": LANG_NAMES.get(lang, lang),
                 "model": model.get("name", ""), "model_short": model.get("short", "model"),
                 "stats_line": stats.line(self.stats) if self.stats else "", "stats": self.stats_public(),
-                "version": VERSION}
+                "version": VERSION, "speakers": self.speaker_names()}
 
     def stats_public(self):
         return {k: (v if not isinstance(v, dict) else v.get("name")) for k, v in (self.stats or {}).items()}
@@ -1479,7 +1553,8 @@ class MainWindow(QMainWindow):
                              if k.startswith(("transcription.", "advanced.", "output.", "vocabulary.active"))
                              and k != "transcription.location_cache"},
                 "edited": self.editor.document().isModified(),
-                "summary": self._summary_for_session()}
+                "summary": self._summary_for_session(),
+                "speakers": self._speakers_for_session(), "speaker_run": self.speaker_run}
 
     def _write_session(self, path):
         session.save(path, self._session_data())
@@ -1550,6 +1625,7 @@ class MainWindow(QMainWindow):
         self.autosave_paths = data.get("exports") or {}
         self.resume = None
         self.shown_blocks = data.get("paragraphs") or []
+        self._speakers_from_session(data)
         if data.get("blocks"):
             self.show_blocks(data["blocks"])
         else:
@@ -1568,6 +1644,509 @@ class MainWindow(QMainWindow):
             self.status_msg(f"This transcript stopped at {media.fmt_clock(self.resume_point())}. Press Resume to "
                             "carry on from there.")
 
+    # ================================================================== speaker identification (version 2.4.0)
+    def speaker_models(self):
+        """(segmentation model, voice model) installed and chosen, or None for a missing one."""
+        self.manager.scan_spk()
+        return (self.manager.spk_choice("segmentation"),
+                self.manager.spk_choice("speaker-embedding", self.settings.get("speakers.voice_model")))
+
+    def speaker_names(self):
+        return {sid: sp["name"] for sid, sp in self.speakers.items()}
+
+    def _library(self):
+        path = voicelib.path_for(self.settings.data_folder())
+        lib, problems = voicelib.load(path)
+        return lib, problems, path
+
+    def _speakers_for_session(self):
+        """Names and how they were found; never voiceprints (a session file can be shared)."""
+        return {sid: {k: sp.get(k) for k in ("name", "person", "level", "score") if sp.get(k)}
+                for sid, sp in self.speakers.items()}
+
+    def _speakers_from_session(self, data):
+        self.speakers = {}
+        for sid, sp in (data.get("speakers") or {}).items():
+            if isinstance(sp, dict) and isinstance(sp.get("name"), str) and isinstance(sid, str):
+                self.speakers[sid] = {"name": sp["name"][:voicelib.MAX_NAME], "person": sp.get("person"),
+                                      "level": sp.get("level", ""), "score": sp.get("score", 0), "centroid": None}
+        self.speaker_run = data.get("speaker_run") if isinstance(data.get("speaker_run"), dict) else {}
+        self.editor.speaker_names = self.speaker_names()
+        self.editor.speaker_order = list(self.speakers)
+        self.refresh_speaker_panel()
+
+    def refresh_speaker_panel(self):
+        if not hasattr(self, "spk_panel"):
+            return
+        show = bool(self.speakers) and bool(self.settings.get("speakers.show_panel"))
+        self.spk_panel.setVisible(show)
+        if not show:
+            return
+        st = spk.talk_stats(self.editor.blocks())
+        lib, _, _ = self._library()
+        model = (self.speaker_run or {}).get("voice_model_id")
+        lib_names = sorted({p["name"] for p in lib["people"] if not model or p["model"] == model}, key=str.casefold)
+        min_s = float(self.settings.get("speakers.min_save_s"))
+        rows = []
+        for i, (sid, sp) in enumerate(self.speakers.items()):
+            shape, light, dark = spk.marker(self.editor.speaker_order.index(sid)
+                                            if sid in self.editor.speaker_order else i)
+            t = st.get(sid, {"seconds": 0.0, "turns": 0, "share": 0.0})
+            if not sp.get("centroid"):
+                why = "Voices can be saved right after Identify Speakers (voiceprints are not kept in transcripts)."
+            elif t["seconds"] < min_s:
+                why = f"{sp['name']} spoke {t['seconds']:.0f} s; {min_s:.0f} s are needed to save a voice " \
+                      "(Options > Speakers)."
+            elif DEFAULT_NAME.match(sp["name"]):
+                why = "Type the person's name first."
+            else:
+                why = ""
+            rows.append({"id": sid, "name": sp["name"], "shape": shape, "light": light, "dark": dark,
+                         "detail": detail_text(dict(sp, id=sid)), "seconds": t["seconds"], "share": t["share"],
+                         "turns": t["turns"], "can_save": not why, "why_not": why, "remember": sp.get("remember")})
+        dark_ = self.editor.palette().color(self.editor.backgroundRole()).lightness() < 128
+        self.spk_panel.set_rows(rows, lib_names, min_s, dark_)
+
+    def identify_speakers(self, auto=False, qitem=None, low_note=None):
+        """Transcribe > Identify Speakers: find who spoke when in the worker process. True if it started."""
+        if self.job or self.spjob or not self.info or not self.segments:
+            return False
+        if self.sjob:
+            self.status_msg("Wait for the AI summary to finish, then identify the speakers.")
+            return False
+        seg, emb = self.speaker_models()
+        if not (seg and emb):
+            if not auto and QMessageBox.question(
+                    self, "Identify Speakers", "Speaker identification needs two small models (about 30 MB), "
+                    "downloaded once. Open Options > Speakers to download them?") == QMessageBox.Yes:
+                self.options(SPEAKERS_TAB)
+            return False
+        lib, problems, _ = self._library()
+        people = voicelib.for_model(lib, emb.key)
+        if auto:
+            opts = {"count": int(self.settings.get("speakers.count")),
+                    "split": split_default(self.settings, self.info, self.track),
+                    "left_name": self.settings.get("speakers.left_name") or "Me",
+                    "use_library": bool(self.settings.get("speakers.use_library")) and bool(people)}
+        else:
+            if self.speakers and QMessageBox.question(
+                    self, "Identify Speakers", "Identify the speakers again? The names and speaker changes on screen "
+                    "are replaced; the text is kept.") != QMessageBox.Yes:
+                return False
+            dlg = IdentifyDialog(self, self.settings, self.info, self.track, people, seg.name, emb.name)
+            if not dlg.exec():
+                return False
+            opts = dlg.values()
+        job = {"type": "speakers", "path": self.info["path"], "track": self.track,
+               "duration": self.info["duration"], "seg_model": self.manager.spk_file(seg),
+               "emb_model": self.manager.spk_file(emb), "threads": int(self.settings.get("speakers.threads")),
+               "num_speakers": opts["count"], "threshold": float(self.settings.get("speakers.threshold")),
+               "split": opts["split"], "items": [[float(sg["start"]), float(sg["end"])] for sg in self.segments]}
+        self.spjob = {"opts": opts, "qitem": qitem, "low_note": low_note, "auto": auto, "t0": time.perf_counter(),
+                      "seg": seg, "emb": emb, "result": None, "problems": problems}
+        self.editor.setReadOnly(True)
+        self.progress.setValue(0)
+        self.progress.setVisible(True)
+        if self.settings.get("general.keep_awake"):
+            system.keep_awake(True)
+        self.worker.submit(job)
+        log.info("speaker identification started (%s, %s)", "two channels" if opts["split"] else "mixed",
+                 f"{opts['count']} speakers" if opts["count"] else "automatic count")
+        self.stage("Identifying speakers…")
+        self.update_title()
+        self.update_actions()
+        return True
+
+    def _speaker_event(self, ev):
+        kind = ev[0]
+        if kind == "stage":
+            self.stage(ev[1])
+        elif kind == "progress":
+            total = ev[2] or 1
+            frac = min(1.0, ev[1] / total)
+            self.progress.setValue(int(frac * 1000))
+            self.stage_label.setText(f"Identifying speakers ({frac:.0%})")
+        elif kind == "speakers":
+            self.spjob["result"] = ev[1]
+        elif kind == "done":
+            self._speakers_done()
+        elif kind == "error":
+            self._speakers_failed(ev[1])
+
+    def _speaker_end(self):
+        j = self.spjob
+        self.spjob = None
+        self.editor.setReadOnly(False)
+        self.progress.setVisible(False)
+        system.keep_awake(False)
+        self.update_title()
+        self.update_actions()
+        return j
+
+    def _speakers_done(self):
+        j = self._speaker_end()
+        res = j.get("result") or {}
+        if res.get("cancelled") or not res.get("turns") and not res.get("speakers"):
+            self.stage("No speakers were found." if not res.get("cancelled") else "Speaker identification stopped.")
+            if j["auto"]:
+                self._after_transcript(j["qitem"], j["low_note"])
+            return
+        self._apply_speakers(res, j)
+        if j["auto"]:
+            self._after_transcript(j["qitem"], j["low_note"])
+
+    def _speakers_failed(self, message):
+        j = self._speaker_end()
+        log.error("speaker identification failed: %s", message)
+        self.worker.kill()
+        self.stage("Speaker identification failed: " + message)
+        if j and j["auto"]:
+            self._after_transcript(j["qitem"], j["low_note"])
+        else:
+            QMessageBox.warning(self, "Identify Speakers", f"Speaker identification stopped:\n\n{message}\n\n"
+                                "The transcript is unchanged.")
+
+    def stop_speakers(self):
+        """Stop at once: the speaker step cannot be interrupted inside the library, so the worker process ends."""
+        if not self.spjob:
+            return
+        self.worker.kill()
+        j = self._speaker_end()
+        self.stage("Speaker identification stopped. The transcript is unchanged.")
+        if j["auto"] and not self.stop_all:
+            self._after_transcript(j["qitem"], j["low_note"])
+
+    def _apply_speakers(self, res, j):
+        opts = j["opts"]
+        items = self.segments
+        if res.get("split"):
+            diffs = res.get("diffs") or []
+            diffs = diffs + [None] * (len(items) - len(diffs))
+            pairs = spk.assign_split(items, res["turns"], diffs)
+        else:
+            pairs = spk.assign(items, res["turns"])
+        segs = []
+        for sg, (sid, unsure) in zip(items, pairs):
+            sg = {k: v for k, v in sg.items() if k not in ("spk", "spk_unsure")}
+            if sid:
+                sg["spk"], sg["spk_unsure"] = sid, bool(unsure)
+            segs.append(sg)
+        remap, n = {}, 0  # speakers numbered in order of appearance
+        for sid in spk.order_of_appearance(segs):
+            if sid == spk.ME:
+                remap[sid] = sid
+            else:
+                n += 1
+                remap[sid] = f"S{n}"
+        segs = [dict(sg, spk=remap[sg["spk"]]) if sg.get("spk") else sg for sg in segs]
+        self.segments = segs
+        names = spk.default_names(list(remap.values()), opts.get("left_name"))
+        found = res.get("speakers") or {}
+        self.speakers = {}
+        for old, sid in remap.items():
+            f = found.get(old) or {}
+            self.speakers[sid] = {"name": names[sid], "centroid": f.get("centroid") or None, "person": None,
+                                  "level": "", "score": 0, "searched": bool(opts.get("use_library"))}
+        emb = j["emb"]
+        matched = {}
+        lib, _, path = self._library()
+        people = voicelib.for_model(lib, emb.key)
+        for sp_ in self.speakers.values():  # an empty library was checked too: nobody in it
+            sp_["searched"] = bool(opts.get("use_library")) or not people
+        if opts.get("use_library"):
+            matched = spk.match({k: v["centroid"] for k, v in self.speakers.items() if k != spk.ME and v["centroid"]},
+                                people, self.settings.get("speakers.strictness"))
+            for sid, m in matched.items():
+                self.speakers[sid].update(name=m["name"], person=m["person"], level=m["level"], score=m["score"])
+            if matched:
+                voicelib.touch_matched(lib, [m["person"] for m in matched.values()])
+                try:
+                    voicelib.save(lib, path)
+                except OSError:
+                    pass
+        self.speaker_run = {"date": datetime.datetime.now().isoformat(timespec="seconds"),
+                            "segmentation_model": j["seg"].name, "voice_model": emb.name, "voice_model_id": emb.key,
+                            "two_channels": bool(res.get("split")), "count": opts.get("count", 0),
+                            "seconds": (res.get("stats") or {}).get("speaker_s")}
+        self.editor.speaker_names = self.speaker_names()
+        self.editor.speaker_order = list(self.speakers)
+        edited = self.editor.document().isModified()
+        if edited:  # keep the user's edits: each paragraph takes the speaker who said most of it
+            blocks = self.editor.blocks()
+            for b in blocks:
+                sid, unsure = spk.majority(b, segs)
+                b.pop("spk", None)
+                b.pop("spk_unsure", None)
+                if sid:
+                    b["spk"], b["spk_unsure"] = sid, unsure
+            pos = self.editor.verticalScrollBar().value()
+            self.editor.set_blocks(self.attach_subs(blocks))
+            self.editor.verticalScrollBar().setValue(pos)
+            self.editor.document().setModified(True)
+        else:
+            self.show_blocks()
+            self.editor.document().setModified(True)
+        st = (res.get("stats") or {})
+        unsure = sum(1 for sg in segs if sg.get("spk_unsure"))
+        line = (f"Speakers: {len(self.speakers)} found"
+                + (" (two channels: left = me, right = others)" if res.get("split") else "")
+                + (f", {len(matched)} named from the voice library" if opts.get("use_library") else "")
+                + f", {unsure} segment{'s' if unsure != 1 else ''} unsure (?); "
+                f"{self.speaker_run['segmentation_model']} + {emb.name}; {st.get('speaker_s', 0)} s"
+                + (f" in {st.get('blocks')} blocks" if (st.get("blocks") or 1) > 1 else ""))
+        self.cleanup_log = [x for x in self.cleanup_log if not x.startswith("Speakers: ")] + [line]
+        for p in (j.get("problems") or [])[:3]:
+            self.cleanup_log.append(f"Voice library: {p}")
+        self.update_raw()
+        self.refresh_speaker_panel()
+        log.info("speakers identified: %d found, %d matched, %s s", len(self.speakers), len(matched),
+                 st.get("speaker_s"))
+        self._resave()
+        self.stage(f"Speakers identified: {len(self.speakers)} found"
+                   + (f", {len(matched)} named from your voice library" if matched else "")
+                   + ". Type names in the Speakers panel.")
+        self.update_title()
+        self.update_actions()
+
+    def _resave(self):
+        """After a speaker change: write the auto-saved transcript and its exports again, in the same files."""
+        if self.settings.get("output.autosave") == "off" or not self.session_path or \
+                not os.path.isdir(os.path.dirname(self.session_path)):
+            return False
+        try:
+            folder = os.path.dirname(self.session_path)
+            fmts = [f for f in self.settings.get("output.formats") if f in (self.autosave_paths or {})]
+            if fmts and self.settings.get("output.autosave") == "session+exports":
+                self.export(fmts, folder, self.settings.get("output.pattern"), replace=self.autosave_paths)
+            self._write_session(self.session_path)
+            self.editor.document().setModified(False)
+            self.update_title()
+            return True
+        except Exception as ex:
+            log.exception("saving after speaker identification failed")
+            self.status_msg(f"The transcript could not be saved again: {ex}")
+            return False
+
+    def clear_speaker_labels(self):
+        if not self.speakers or QMessageBox.question(self, "Clear Speaker Labels", "Remove every speaker label and "
+                                                     "name from this transcript? The text is kept.") != QMessageBox.Yes:
+            return
+        self.segments = [{k: v for k, v in sg.items() if k not in ("spk", "spk_unsure")} for sg in self.segments]
+        blocks = [{k: v for k, v in b.items() if k not in ("spk", "spk_unsure")} for b in self.editor.blocks()]
+        self.speakers, self.speaker_run = {}, {}
+        self.editor.speaker_names, self.editor.speaker_order = {}, []
+        self.editor.set_blocks(self.attach_subs(blocks))
+        self.editor.document().setModified(True)
+        self.cleanup_log = [x for x in self.cleanup_log if not x.startswith("Speakers: ")]
+        self.update_raw()
+        self.refresh_speaker_panel()
+        self.update_title()
+        self.update_actions()
+
+    def _relabel(self):
+        self.editor.speaker_names = self.speaker_names()
+        self.editor.refresh_labels()
+        self.editor.document().setModified(True)
+        self.refresh_speaker_panel()
+        self.update_title()
+
+    def rename_speaker(self, sid, name):
+        name = " ".join((name or "").split())[:voicelib.MAX_NAME]
+        sp = self.speakers.get(sid)
+        if not sp or not name or name == sp["name"]:
+            return
+        other = next((k for k, v in self.speakers.items() if k != sid and v["name"].casefold() == name.casefold()),
+                     None)
+        if other:
+            if QMessageBox.question(self, "Rename speaker", f"{name} is already a speaker. Join {sp['name']} into "
+                                    f"{name}? Their paragraphs get the name {name}.") == QMessageBox.Yes:
+                self._merge(other, sid)
+            else:
+                self.refresh_speaker_panel()
+            return
+        lib, _, _ = self._library()
+        model = (self.speaker_run or {}).get("voice_model_id") or ""
+        person = voicelib.find_name(lib, name, model) if model else None
+        sp.update(name=name, person=person["id"] if person else None, level="", score=0)
+        self._relabel()
+        self.status_msg(f"Renamed to {name} everywhere in this transcript.")
+
+    def rename_speaker_dialog(self, sid=None):
+        if not self.speakers:
+            return
+        if sid is None:
+            d = self.editor.textCursor().block().userData()
+            sid = getattr(d, "spk", None)
+            if sid not in self.speakers:
+                names = [v["name"] for v in self.speakers.values()]
+                pick, ok = QInputDialog.getItem(self, "Rename speaker", "Speaker:", names, 0, False)
+                if not ok:
+                    return
+                sid = list(self.speakers)[names.index(pick)]
+        name, ok = QInputDialog.getText(self, "Rename speaker", "Name:", text=self.speakers[sid]["name"])
+        if ok:
+            self.rename_speaker(sid, name)
+
+    def _new_speaker(self):
+        name, ok = QInputDialog.getText(self, "New speaker", "Name:")
+        name = " ".join(name.split())[:voicelib.MAX_NAME] if ok else ""
+        if not name:
+            return None
+        for k, v in self.speakers.items():
+            if v["name"].casefold() == name.casefold():
+                return k
+        n = 1 + max([int(k[1:]) for k in self.speakers if k[1:].isdigit()] or [0])
+        sid = f"S{n}"
+        self.speakers[sid] = {"name": name, "centroid": None, "person": None, "level": "", "score": 0}
+        self.editor.speaker_names = self.speaker_names()
+        if sid not in self.editor.speaker_order:
+            self.editor.speaker_order.append(sid)
+        return sid
+
+    def _set_block_speaker(self, block, sid):
+        from .transcript import BlockData
+        d = block.userData()
+        if not isinstance(d, BlockData):
+            return
+        self.editor.set_block_speaker(block, sid, False)
+        for p in self.shown_blocks or []:  # the segments behind the paragraph follow it
+            if abs(float(p["start"]) - float(d.start)) < 1e-3:
+                for i in p.get("segs") or []:
+                    if i < len(self.segments):
+                        if sid:
+                            self.segments[i]["spk"], self.segments[i]["spk_unsure"] = sid, False
+                        else:
+                            self.segments[i].pop("spk", None)
+                            self.segments[i].pop("spk_unsure", None)
+                p["spk"] = sid
+        self.editor.document().setModified(True)
+        self.refresh_speaker_panel()
+        self.update_title()
+
+    def _speaker_items(self, menu, block):
+        from .transcript import BlockData
+        d = block.userData()
+        if not isinstance(d, BlockData):
+            return
+        sub = menu.addMenu("Change speaker")
+        for i, (sid, sp) in enumerate(self.speakers.items()):
+            a = sub.addAction(sp["name"] + (f"\tAlt+{i + 1}" if i < 9 else ""),
+                              lambda _=False, s=sid, b=block: self._set_block_speaker(b, s))
+            a.setCheckable(True)
+            a.setChecked(d.spk == sid)
+        sub.addSeparator()
+        sub.addAction("New speaker…", lambda b=block: (lambda s: s and self._set_block_speaker(b, s))(
+            self._new_speaker()))
+        if d.spk:
+            sub.addAction("No speaker", lambda b=block: self._set_block_speaker(b, None))
+            menu.addAction(f"Rename {self.speakers.get(d.spk, {}).get('name', 'speaker')}…",
+                           lambda s=d.spk: self.rename_speaker_dialog(s))
+        sub.setEnabled(not self.job and not self.spjob)
+
+    def _speaker_menu(self, block, pos):
+        m = QMenu(self)
+        self._speaker_items(m, block)
+        m.exec(pos)
+
+    def _speaker_context(self, menu, block):
+        if self.speakers:
+            menu.addSeparator()
+            self._speaker_items(menu, block)
+
+    def change_paragraph_speaker(self):
+        block = self.editor.textCursor().block()
+        r = self.editor.cursorRect()
+        self._speaker_menu(block, self.editor.viewport().mapToGlobal(r.bottomLeft()))
+
+    def set_speaker_by_number(self, n):
+        if not self.speakers or self.job or self.spjob or n > len(self.speakers):
+            return
+        sid = list(self.speakers)[n - 1]
+        self._set_block_speaker(self.editor.textCursor().block(), sid)
+        self.status_msg(f"Paragraph given to {self.speakers[sid]['name']}.")
+
+    def _merge(self, keep, drop):
+        self.segments = spk.merge(self.segments, keep, drop)
+        for p in self.shown_blocks or []:
+            if p.get("spk") == drop:
+                p["spk"] = keep
+        for b in self.editor.blocks_with_speaker(drop):
+            b.userData().spk = keep
+        gone = self.speakers.pop(drop, {})
+        k = self.speakers[keep]
+        if not k.get("centroid") and gone.get("centroid"):
+            k["centroid"] = gone["centroid"]
+        self._relabel()
+        self.status_msg(f"{gone.get('name', 'The speaker')} joined into {k['name']}.")
+
+    def merge_speakers(self):
+        if len(self.speakers) < 2:
+            return
+        names = [v["name"] for v in self.speakers.values()]
+        drop, ok = QInputDialog.getItem(self, "Merge speakers", "Speaker to join into another:", names, len(names) - 1,
+                                        False)
+        if not ok:
+            return
+        rest = [x for x in names if x != drop]
+        keep, ok = QInputDialog.getItem(self, "Merge speakers", f"Join {drop} into:", rest, 0, False)
+        if not ok:
+            return
+        ids = list(self.speakers)
+        self._merge(ids[names.index(keep)], ids[names.index(drop)])
+
+    def play_speaker(self, sid):
+        items = self.segments if any(sg.get("spk") == sid for sg in self.segments) else self.editor.blocks()
+        span = spk.sample_span(items, sid)
+        if not span or not self.info:
+            return
+        a, b = span
+        self.player.play(a)
+        ms = int(max(0.5, (b - a) / max(float(self.settings.get("general.playback_speed")), 0.1)) * 1000)
+        QTimer.singleShot(ms, lambda: self.player.pause() if self.player.playing else None)
+
+    def save_voices(self):
+        ticked = self.spk_panel.ticked()
+        if not ticked:
+            QMessageBox.information(self, "Save voices", "Tick Remember next to the voices to keep, then press Save "
+                                    "voices. A voice can be saved right after Identify Speakers, once the person has a "
+                                    "name and spoke long enough.")
+            return
+        lib, problems, path = self._library()
+        model = (self.speaker_run or {}).get("voice_model_id")
+        st = spk.talk_stats(self.editor.blocks())
+        saved = []
+        for sid in ticked:
+            sp = self.speakers.get(sid)
+            if not sp or not sp.get("centroid") or not model:
+                continue
+            existing = voicelib.find(lib, sp.get("person")) if sp.get("person") else None
+            existing = existing or voicelib.find_name(lib, sp["name"], model)
+            dlg = ConsentDialog(self, sp["name"], existing)
+            if not dlg.exec() or not dlg.agree.isChecked():
+                continue
+            p = voicelib.add_voice(lib, sp["name"], sp["centroid"], st.get(sid, {}).get("seconds", 0.0) or 1.0,
+                                   model, consent_date=voicelib.today(), note=dlg.note.text(),
+                                   pid=existing["id"] if existing else None)
+            sp["person"] = p["id"]
+            sp["remember"] = False
+            saved.append(sp["name"])
+        if saved:
+            try:
+                voicelib.save(lib, path)
+            except OSError as ex:
+                QMessageBox.warning(self, "Save voices", f"The voice library could not be saved: {ex}")
+                return
+            log.info("voice library: %d voice(s) saved", len(saved))  # never names in the log
+            self.status_msg("Saved to your voice library: " + ", ".join(saved) + ".")
+        self.refresh_speaker_panel()
+
+    def voice_library(self):
+        _, _, path = self._library()
+        dlg = VoiceLibraryDialog(self, path, {e["id"]: e["name"] for e in self.manager.spk_catalog})
+        dlg.exec()
+        self.refresh_speaker_panel()
+
+
     # ================================================================== AI summary (version 2.3.0)
     def _summary_options(self, model):
         s = self.settings
@@ -1584,6 +2163,7 @@ class MainWindow(QMainWindow):
                 "temperature": float(s.get("summary.temperature")),
                 "max_tokens": int(s.get("summary.max_tokens")) or summ.LENGTHS[length]["tokens"],
                 "file": os.path.basename(info.get("path", "")) or "the recording",
+                "speakers": bool(self.speakers) and bool(s.get("speakers.in_exports")),
                 "duration_text": media.fmt_clock(info.get("duration") or 0),
                 "transcript_lang_name": LANG_NAMES.get(lang, "") if lang != "auto" else ""}
 
@@ -1591,15 +2171,18 @@ class MainWindow(QMainWindow):
         """The edited transcript for the model, with times every ~30 s: unedited paragraphs go back to their
         segments (finer times to point to); an edited paragraph stays whole so the correction is used."""
         out = []
+        names = self.speaker_names() if self.settings.get("speakers.in_exports") else {}
         for b in self.segment_blocks(self.editor.blocks()):
             t = (b.get("text") or "").strip()
             if not t:
                 continue
-            if out and float(b["start"]) - out[-1]["start"] < 30 and len(out[-1]["text"]) + len(t) < 400:
+            who = names.get(b.get("spk"), "")
+            if out and float(b["start"]) - out[-1]["start"] < 30 and len(out[-1]["text"]) + len(t) < 400 \
+                    and out[-1].get("speaker", "") == who:  # never two speakers in one line (2.4.0)
                 sep = "" if postproc.has_cjk(out[-1]["text"][-1:]) and postproc.has_cjk(t[:1]) else " "
                 out[-1]["text"] += sep + t
             else:
-                out.append({"start": float(b["start"]), "text": t})
+                out.append({"start": float(b["start"]), "text": t, **({"speaker": who} if who else {})})
         return out
 
     def summary_context(self, model):
@@ -1612,7 +2195,7 @@ class MainWindow(QMainWindow):
     def start_summary(self, auto=False, qitem=None):
         """Write the AI summary of the transcript on screen, in the summary process. True if it started."""
         from .. import llm
-        if self.sjob or self.job:
+        if self.sjob or self.job or self.spjob:
             return False
         if not self.settings.get("summary.enabled"):
             if not auto:
@@ -2199,6 +2782,12 @@ class MainWindow(QMainWindow):
         on = bool(self.settings.get("summary.enabled"))
         self.a_sum_go.setEnabled(on and has_text and not running and not self.sjob)
         self.a_sum_stop.setEnabled(bool(self.sjob))
+        sp = bool(self.spjob)
+        self.a_spk_go.setEnabled(bool(self.segments) and bool(self.info) and not running and not sp)
+        self.a_spk_stop.setEnabled(sp)
+        for a in (self.a_spk_clear, self.a_rename_spk, self.a_merge_spk):
+            a.setEnabled(bool(self.speakers) and not running and not sp)
+        self.a_change_spk.setEnabled(has_text and not running and not sp)
         mkey = self.settings.get("transcription.model")
         m = self.manager.find(mkey) if mkey != "auto" else None
         self.speed_menu.setEnabled(m is None or m.kind == "whisper")
@@ -2331,6 +2920,8 @@ class MainWindow(QMainWindow):
                 e.ignore()
                 return
             self.sworker.cancel()
+        if self.spjob:
+            self.stop_speakers()
         if self.job:
             if QMessageBox.question(self, APP_NAME, "Stop the transcription and close?") != QMessageBox.Yes:
                 e.ignore()

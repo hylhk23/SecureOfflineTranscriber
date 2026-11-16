@@ -45,6 +45,8 @@ When a new program version brings a newer built-in list, it replaces an older im
 | `summary_models` | From version 2.3.0: language models for the AI summary (see "Summary models" below); older versions ignore them |
 | `summary_recommended` | `ram_gb` (12), `below` and `at_or_above`: the summary model recommended for PCs with less / more memory |
 | `summary_automatic` | `below` and `at_or_above`: the order Automatic tries summary models in |
+| `speaker_models` | From version 2.4.0: models for speaker identification (see "Speaker models" below); older versions ignore them. A list without this key keeps the speaker models of the program's built-in list |
+| `speaker_recommended` | The ids of one `segmentation` and one `speaker-embedding` model: Download recommended set in Options > Speakers |
 
 ## Model fields
 
@@ -87,3 +89,16 @@ version can load. Test a new model with a real summary before publishing a list.
 A list file can only point at huggingface.co, at a fixed commit, and every downloaded file must match its
 SHA-256 or it is deleted. File names cannot contain folders. So a list file cannot make the program download
 or run anything else — but only import lists from people you trust, as with any file.
+
+## Speaker models (version 2.4.0)
+
+Same fields as speech models, plus:
+
+| Field | Example | Rules |
+|---|---|---|
+| `kind` | `"segmentation"` | `segmentation` (pyannote segmentation 3.0 converted for sherpa-onnx: who speaks when) or `speaker-embedding` (a voice model that turns speech into a voiceprint, such as 3D-Speaker CAM++) |
+| `files` | `["model.int8.onnx", "LICENSE"]` | Exactly one `.onnx` file, plus licence or read-me files if wanted |
+| `upstream` | `"pyannote/segmentation-3.0"` | The original model, for the licence and model card |
+
+Voiceprints in the voice library belong to the voice model (`speaker-embedding` id) that made them: changing that
+model's `id` means people must be saved again. Keep the id when you update a model's revision.

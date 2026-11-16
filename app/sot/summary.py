@@ -81,11 +81,13 @@ def script_for_output(code, script_yue="hk", script_zh="cn"):
 
 
 def transcript_lines(blocks):
+    """'[hh:mm:ss] text', or (2.4.0) '[hh:mm:ss] Name: text' when the block has a speaker's name."""
     out = []
     for b in blocks:
         t = (b.get("text") or "").strip()
         if t:
-            out.append(f"[{media.fmt_clock(float(b.get('start') or 0))}] {t}")
+            who = f"{b['speaker']}: " if b.get("speaker") else ""
+            out.append(f"[{media.fmt_clock(float(b.get('start') or 0))}] {who}{t}")
     return out
 
 
@@ -117,6 +119,10 @@ def section_instructions(opts):
                  "in the form [hh:mm:ss].")
     else:
         text += "\n\nDo not add times."
+    if opts.get("speakers"):
+        text += ("\n\nTranscript lines start with the speaker's name. Use these names to say who said, decided or "
+                 "will do something. A name such as \"Speaker 2\" means a person whose name is not known: keep it as "
+                 "it is and do not guess a real name.")
     if (opts.get("instructions") or "").strip():
         text += "\n\nFurther instructions from the user:\n" + opts["instructions"].strip()
     text += "\n\nWrite only the summary, with no introduction."

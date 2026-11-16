@@ -34,7 +34,7 @@ def spelling_items():
             [(v, f"{name} ({spelling.EXAMPLES[v]})") for v, name in spelling.VARIANTS] +
             [("off", "As the model writes")])
 HOTWORD_LIMIT = 100  # about half of Whisper's 448-token prompt
-TABS = ["General", "Transcription", "Vocabulary", "Output", "Advanced", "AI Summary"]
+TABS = ["General", "Transcription", "Vocabulary", "Output", "Advanced", "AI Summary", "Speakers"]
 
 
 def run_with_progress(parent, title, fn):
@@ -219,7 +219,9 @@ class OptionsDialog(QDialog):
         self.output = OutputTab(self)
         self.advanced = AdvancedTab(self)
         self.summary = SummaryTab(self)
-        for w, name in zip((self.general, self.trans, self.vocab, self.output, self.advanced, self.summary), TABS):
+        self.speakers = SpeakersTab(self)
+        for w, name in zip((self.general, self.trans, self.vocab, self.output, self.advanced, self.summary,
+                            self.speakers), TABS):
             sc = QScrollArea()
             sc.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # pages fit the width; tables scroll inside
             sc.setWidget(w)
@@ -246,7 +248,7 @@ class OptionsDialog(QDialog):
 
     # ------------------------------------------------------------ apply
     def collect(self):
-        for t in (self.general, self.trans, self.vocab, self.output, self.advanced, self.summary):
+        for t in (self.general, self.trans, self.vocab, self.output, self.advanced, self.summary, self.speakers):
             t.collect(self.work)
 
     def validate(self):
@@ -288,13 +290,15 @@ class OptionsDialog(QDialog):
 
     def changeEvent(self, ev):  # theme switched while the window is open: warnings get the colour for it
         super().changeEvent(ev)
-        if ev.type() == QEvent.PaletteChange and hasattr(self, "summary"):
+        if ev.type() == QEvent.PaletteChange and hasattr(self, "speakers"):
             QTimer.singleShot(0, self.refresh_model_tabs)  # after the tabs themselves have the new palette
 
     # ------------------------------------------------------------ shared by the Transcription and AI Summary tabs
     def refresh_model_tabs(self, rescan=False):
         self.trans.refresh(rescan=rescan)
         self.summary.refresh(rescan=rescan)
+        if hasattr(self, "speakers"):
+            self.speakers.refresh(rescan=rescan)
 
     def turn_offline_off(self):
         """Allow downloads at once, like the main window's Options > Offline Mode tick."""
@@ -335,9 +339,10 @@ class OptionsDialog(QDialog):
         from .. import modellist
         li = self.manager.list_info
         src = "built into the program" if li["source"] == "built-in" else "imported"
-        n = len(li["data"]["models"]) if what == "speech" else len(li["data"].get("summary_models", []))
+        key = {"speech": "models", "summary": "summary_models", "speakers": "speaker_models"}[what]
+        n = len(li["data"].get(key, []))
         label = (f"Model list <b>{li['data']['list_version']}</b> ({src}) \u00b7 {n} "
-                 f"{'models' if what == 'speech' else 'summary models'}")
+                 f"{ {'speech': 'models', 'summary': 'summary models', 'speakers': 'speaker models'}[what] }")
         tip = (f"{li['path']}\nOne model list file holds the speech models (Transcription tab) and the AI summary "
                "models; importing it on either tab does the same.")
         problem = warn_html(self, li["problem"]) if li["problem"] else ""
@@ -384,7 +389,7 @@ class OptionsDialog(QDialog):
 
     def reload_tabs(self):
         idx = self.tabs.currentIndex()
-        for t in (self.general, self.trans, self.vocab, self.output, self.advanced, self.summary):
+        for t in (self.general, self.trans, self.vocab, self.output, self.advanced, self.summary, self.speakers):
             t.load(self.work)
         self.tabs.setCurrentIndex(idx)
 
@@ -2052,3 +2057,341 @@ class SummaryTab(QWidget):
 def ram_gb_text():
     from ..modelmgr import ram_gb
     return f"{ram_gb()[0]:.0f} GB"
+
+
+# ====================================================================== Speakers (version 2.4.0)
+SPEAKER_COUNTS = [(0, "Automatic")] + [(n, str(n)) for n in range(2, 11)]
+SPEAKER_CHANNELS = [("auto", "Use the recorder's channel tag (Voice Recorder Pro: Separate)"),
+                    ("split", "Always: left = me (microphone), right = others (computer audio)"),
+                    ("mixed", "Never: treat both channels as one")]
+
+
+class SpeakersTab(QWidget):
+    """Options > Speakers: how speakers are identified and named, the voice library, and the two speaker models
+    (download, pause, delete). Models act at once; the settings on OK or Apply."""
+    COLS = ["Model", "Kind", "Size", "Licence", "Status", ""]
+
+    def __init__(self, dlg):
+        super().__init__()
+        self.dlg = dlg
+        self.mgr = dlg.manager
+        v = QVBoxLayout(self)
+        intro = QLabel("Speaker identification is a step <b>after</b> transcribing: Transcribe > Identify Speakers "
+                       "(Ctrl+D) finds who spoke when, on this computer, and labels each paragraph. Names come from you, "
+                       "or from voices you saved in the voice library with each person's consent. Nothing leaves the "
+                       "computer.")
+        intro.setWordWrap(True)
+        v.addWidget(intro)
+        g = QGroupBox("Identifying speakers")
+        f = QFormLayout(g)
+        self.auto = check("Identify speakers automatically when a transcript is complete", False,
+                          "Off: start it yourself with Transcribe > Identify Speakers (Ctrl+D).")
+        f.addRow("", self.auto)
+        self.count = combo(SPEAKER_COUNTS, tip="How many people usually speak, everyone included. Automatic lets "
+                           "the program decide; you can change it each time in the Identify Speakers window.")
+        f.addRow("Number of speakers:", self.count)
+        tw = QWidget()
+        th = QHBoxLayout(tw)
+        th.setContentsMargins(0, 0, 0, 0)
+        th.addWidget(QLabel("More speakers"))
+        self.threshold = QDoubleSpinBox()
+        self.threshold.setRange(0.3, 0.9)
+        self.threshold.setSingleStep(0.05)
+        self.threshold.setDecimals(2)
+        self.threshold.setToolTip("How different two voices must sound to count as two people (used when the number "
+                                  "of speakers is Automatic). Higher: fewer speakers. Lower: more. Default 0.50.")
+        th.addWidget(self.threshold)
+        th.addWidget(QLabel("Fewer speakers"))
+        th.addStretch(1)
+        f.addRow("Telling voices apart:", tw)
+        self.channels = combo(SPEAKER_CHANNELS, tip="A two-channel recording with your microphone on the left and "
+                              "the computer audio (the other participants) on the right is labelled most reliably: "
+                              "the louder side decides who spoke.")
+        f.addRow("Two-channel recordings:", self.channels)
+        self.left_name = QLineEdit()
+        self.left_name.setMaxLength(100)
+        self.left_name.setToolTip("Name given to the left channel (your microphone) in a two-channel recording.")
+        f.addRow("Name for the left channel:", self.left_name)
+        self.threads = QSpinBox()
+        self.threads.setRange(0, 32)
+        self.threads.setSpecialValueText("Auto (all cores)")
+        f.addRow("CPU threads:", self.threads)
+        v.addWidget(g)
+
+        g = QGroupBox("Names and the voice library")
+        f = QFormLayout(g)
+        self.use_lib = check("Name speakers whose voices are in my voice library", True,
+                             "Each speaker's voice is compared with the people you saved. A name is given only when "
+                             "one person is clearly closest; you can always change it.")
+        f.addRow("", self.use_lib)
+        self.strictness = combo([("normal", "Normal"), ("strict", "Strict (fewer, surer names)")],
+                                tip="How alike a voice must be to a saved person to give that name.")
+        f.addRow("Matching:", self.strictness)
+        self.min_save = QSpinBox()
+        self.min_save.setRange(10, 600)
+        self.min_save.setSuffix(" s")
+        self.min_save.setToolTip("A voice can be saved only when the person spoke at least this long in the "
+                                 "recording; short samples match poorly.")
+        f.addRow("Speech needed to save a voice:", self.min_save)
+        lrow = QHBoxLayout()
+        lrow.addWidget(button("Voice Library\u2026", self.open_library, "See, rename, merge, export or delete the "
+                              "saved voices."))
+        self.lib_label = QLabel()
+        lrow.addWidget(self.lib_label, 1)
+        lw = QWidget()
+        lw.setLayout(lrow)
+        f.addRow("Saved voices:", lw)
+        v.addWidget(g)
+
+        g = QGroupBox("In the transcript and exports")
+        f = QFormLayout(g)
+        self.in_exports = check("Show speaker names in exports and give them to the AI summary", True,
+                                "Text, Word, Markdown, subtitles, JSON and CSV get the names; the AI summary uses them "
+                                "for who said or will do what.")
+        f.addRow("", self.in_exports)
+        self.style_ = combo([("colon", "Name: text"), ("brackets", "[Name] text")])
+        f.addRow("Label style:", self.style_)
+        self.show_panel = check("Show the Speakers panel beside the transcript", True)
+        f.addRow("", self.show_panel)
+        v.addWidget(g)
+
+        g = QGroupBox("Speaker models")
+        gv = QVBoxLayout(g)
+        lrow = QHBoxLayout()
+        self.list_label = QLabel()
+        lrow.addWidget(self.list_label)
+        lrow.addStretch(1)
+        lrow.addWidget(button("Import model list\u2026", dlg.import_model_list,
+                              "Use a newer model list file (models.json) you were given."))
+        gv.addLayout(lrow)
+        self.offline_note = OfflineNotice(dlg, "Import model list still works.")
+        gv.addWidget(self.offline_note)
+        vrow = QHBoxLayout()
+        vrow.addWidget(QLabel("Voice model:"))
+        self.voice_model = QComboBox()
+        self.voice_model.setToolTip("The model that turns a voice into a voiceprint. Voices saved with one voice model "
+                                    "are matched only with that model.")
+        vrow.addWidget(self.voice_model, 1)
+        gv.addLayout(vrow)
+        rh = QHBoxLayout()
+        self.rec_btn = button("Download recommended set", self.download_recommended)
+        rh.addWidget(self.rec_btn)
+        rh.addStretch(1)
+        self.disk = QLabel()
+        rh.addWidget(self.disk)
+        gv.addLayout(rh)
+        self.table = QTableWidget(0, len(self.COLS))
+        self.table.setHorizontalHeaderLabels(self.COLS)
+        self.table.verticalHeader().hide()
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        hh = self.table.horizontalHeader()
+        for c in range(len(self.COLS)):
+            hh.setSectionResizeMode(c, QHeaderView.ResizeToContents)
+        hh.setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table.setMinimumHeight(140)
+        gv.addWidget(self.table)
+        note = QLabel("<i>Two small models do the work: a segmentation model finds where each voice speaks and a "
+                      "voice model makes voiceprints. Both run on the processor.</i>")
+        note.setWordWrap(True)
+        gv.addWidget(note)
+        v.addWidget(g)
+        v.addStretch(1)
+        self.rows = {}
+        self.load(dlg.work)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.tick)
+        self.timer.start(500)
+
+    def load(self, s):
+        self.auto.setChecked(bool(s.get("speakers.auto")))
+        self.count.setCurrentIndex(max(0, self.count.findData(int(s.get("speakers.count")))))
+        self.threshold.setValue(float(s.get("speakers.threshold")))
+        self.channels.setCurrentIndex(max(0, self.channels.findData(s.get("speakers.channels"))))
+        self.left_name.setText(s.get("speakers.left_name") or "Me")
+        self.threads.setValue(int(s.get("speakers.threads")))
+        self.use_lib.setChecked(bool(s.get("speakers.use_library")))
+        self.strictness.setCurrentIndex(max(0, self.strictness.findData(s.get("speakers.strictness"))))
+        self.min_save.setValue(int(s.get("speakers.min_save_s")))
+        self.in_exports.setChecked(bool(s.get("speakers.in_exports")))
+        self.style_.setCurrentIndex(max(0, self.style_.findData(s.get("speakers.label_style"))))
+        self.show_panel.setChecked(bool(s.get("speakers.show_panel")))
+        self._wanted_voice = s.get("speakers.voice_model")
+        self.refresh()
+
+    def collect(self, s):
+        s.set("speakers.auto", self.auto.isChecked())
+        s.set("speakers.count", int(self.count.currentData()))
+        s.set("speakers.threshold", round(self.threshold.value(), 2))
+        s.set("speakers.channels", self.channels.currentData())
+        s.set("speakers.left_name", " ".join(self.left_name.text().split()) or "Me")
+        s.set("speakers.threads", self.threads.value())
+        s.set("speakers.use_library", self.use_lib.isChecked())
+        s.set("speakers.strictness", self.strictness.currentData())
+        s.set("speakers.min_save_s", self.min_save.value())
+        s.set("speakers.in_exports", self.in_exports.isChecked())
+        s.set("speakers.label_style", self.style_.currentData())
+        s.set("speakers.show_panel", self.show_panel.isChecked())
+        s.set("speakers.voice_model", self.voice_model.currentData() or "auto")
+
+    def library_path(self):
+        from .. import voicelib
+        return voicelib.path_for(self.dlg.settings.data_folder())
+
+    def open_library(self):
+        from .speakerui import VoiceLibraryDialog
+        VoiceLibraryDialog(self, self.library_path(), {e["id"]: e["name"] for e in self.mgr.spk_catalog}).exec()
+        self.refresh(rescan=False)
+
+    def refresh(self, rescan=True):
+        from .. import voicelib
+        if rescan or not self.mgr.spk_models:
+            self.mgr.scan_spk()
+        cur = self.voice_model.currentData() if self.voice_model.count() else getattr(self, "_wanted_voice", "auto")
+        self.voice_model.clear()
+        auto = self.mgr.spk_choice("speaker-embedding", "auto")
+        self.voice_model.addItem("Automatic" + (f" ({auto.name})" if auto else " (none installed yet)"), "auto")
+        for m in self.mgr.spk_models.values():
+            if m.kind == "speaker-embedding" and m.installed:
+                self.voice_model.addItem(m.name, m.key)
+        self.voice_model.setCurrentIndex(max(0, self.voice_model.findData(cur)))
+        lib, problems = voicelib.load(self.library_path())
+        n = len(lib["people"])
+        self.lib_label.setText(f"{n} {'person' if n == 1 else 'people'}" + (" (some entries could not be read)"
+                                                                              if problems else ""))
+        rec = self.mgr.recommended_spk()
+        size = sum(self.mgr.by_id[i]["size"] for i in rec)
+        self.rec_btn.setText(f"Download recommended set ({human_size(size)})")
+        self.rec_btn.setVisible(bool(rec))
+        label, tip, problem, imported = self.dlg.list_text("speakers")
+        self.list_label.setText(label)
+        self.list_label.setToolTip(tip)
+        self.build_table()
+
+    def build_table(self):
+        mdl = [self.mgr.spk_models[e["id"]] for e in self.mgr.spk_catalog if e["id"] in self.mgr.spk_models]
+        self.table.setRowCount(len(mdl))
+        self.rows = {}
+        off = self.dlg.settings.get("advanced.offline")
+        kinds = {"segmentation": "Who speaks when", "speaker-embedding": "Voice model"}
+        for r, m in enumerate(mdl):
+            e = m.entry or {}
+            vals = [m.name, kinds.get(m.kind, m.kind), human_size(e.get("size", 0)), e.get("license", ""), m.status]
+            for c, t in enumerate(vals):
+                it = QTableWidgetItem(t)
+                it.setData(Qt.UserRole, m.key)
+                if c == 0:
+                    it.setToolTip(f"{e.get('note', '')}\nFrom huggingface.co/{e.get('repo', '')}")
+                if c == 3 and e.get("license_url"):
+                    it.setToolTip(e["license_url"])
+                self.table.setItem(r, c, it)
+            if m.status == "Update available":
+                self.table.item(r, 4).setForeground(QColor(caution_colour(self.table)))
+            if m.status in ("Downloading", "Paused"):
+                self.table.setCellWidget(r, 4, self._bar(m.progress, m.status))
+            w = QWidget()
+            h = QHBoxLayout(w)
+            h.setContentsMargins(2, 0, 2, 0)
+            h.setSpacing(2)
+            b_dl = QPushButton("Resume" if m.status == "Paused" else "Update" if m.status == "Update available"
+                               else "Download")
+            b_dl.clicked.connect(lambda _=False, k=m.key: self.download(k))
+            b_dl.setEnabled(m.status in ("Not installed", "Paused", "Damaged", "Update available") and not off)
+            b_pause = QPushButton("Pause")
+            b_pause.clicked.connect(lambda _=False, k=m.key: self.mgr.pause_download(k))
+            b_pause.setEnabled(m.status == "Downloading")
+            b_del = QPushButton("Delete")
+            b_del.clicked.connect(lambda _=False, k=m.key: self.delete(k))
+            b_del.setEnabled(m.status in ("Installed", "Update available", "Paused", "Damaged"))
+            for b in (b_dl, b_pause, b_del):
+                b.setStyleSheet("padding: 1px 6px;")
+                h.addWidget(b)
+            self.table.setCellWidget(r, 5, w)
+            self.rows[m.key] = r
+        self.table.resizeRowsToContents()
+        self.disk.setText(f"Free on the download drive: {human_size(free_disk(self.dlg.settings.download_folder()))}")
+        self.offline_note.update_state()
+        self.rec_btn.setEnabled(not off)
+
+    def _bar(self, frac, status="Downloading"):
+        bar = QProgressBar()
+        bar.setRange(0, 1000)
+        bar.setValue(int(frac * 1000))
+        bar.setFormat(f"{status} {frac:.0%}")
+        bar.setTextVisible(True)
+        return bar
+
+    def tick(self):
+        changed = False
+        ids = {e["id"] for e in self.mgr.spk_catalog}
+        for cid, (t, stop, state) in list(self.mgr.downloads.items()):
+            if cid not in ids:
+                continue
+            r = self.rows.get(cid)
+            if t.is_alive():
+                if r is not None:
+                    pct = state["done"] / state["total"] if state["total"] else 0
+                    bar = self.table.cellWidget(r, 4)
+                    if bar is None:
+                        self.table.setCellWidget(r, 4, self._bar(pct))
+                    else:
+                        bar.setValue(int(pct * 1000))
+                        bar.setFormat(f"Downloading {pct:.0%}")
+            elif not state.get("reported"):
+                state["reported"] = True
+                changed = True
+                if state.get("error"):
+                    QMessageBox.warning(self, "Download", f"{self.mgr.by_id[cid]['name']}: {state['error']}")
+        if changed:
+            self.refresh()
+
+    def download(self, cid, ask=True):
+        e = self.mgr.by_id[cid]
+        dest = self.mgr.folder_for(e)
+        if ask:
+            text = (f"<b>{e['name']}</b> - speaker identification<br><br>"
+                    f"Source: huggingface.co/{e['repo']} (revision {e['revision'][:10]})<br>"
+                    f"Files: {', '.join(f['name'] for f in e['files'])}<br>Size: {human_size(e['size'])}<br>"
+                    f"Licence: <a href='{e.get('license_url', '')}'>{e['license']}</a><br>"
+                    f"Destination: {dest}<br><br>Every file is checked by SHA-256. Download now?")
+            box = QMessageBox(QMessageBox.Question, "Download model", text, QMessageBox.Yes | QMessageBox.No, self)
+            box.setTextFormat(Qt.RichText)
+            if box.exec() != QMessageBox.Yes:
+                return False
+        try:
+            self.mgr.start_download(cid)
+        except Exception as ex:
+            QMessageBox.warning(self, "Download", str(ex))
+            return False
+        self.refresh(rescan=True)
+        return True
+
+    def download_recommended(self):
+        todo = [c for c in self.mgr.recommended_spk() if not (self.mgr.spk_models.get(c) and
+                                                              self.mgr.spk_models[c].installed)]
+        if not todo:
+            QMessageBox.information(self, "Speaker models", "The recommended models are already installed.")
+            return
+        lines = "<br>".join(f"<b>{self.mgr.by_id[c]['name']}</b> ({human_size(self.mgr.by_id[c]['size'])}, "
+                            f"<a href='{self.mgr.by_id[c].get('license_url', '')}'>{self.mgr.by_id[c]['license']}</a>) "
+                            f"from huggingface.co/{self.mgr.by_id[c]['repo']}" for c in todo)
+        box = QMessageBox(QMessageBox.Question, "Download speaker models",
+                          f"{lines}<br><br>Destination: {self.dlg.settings.download_folder()}<br>Every file is checked "
+                          "by SHA-256. Download now?", QMessageBox.Yes | QMessageBox.No, self)
+        box.setTextFormat(Qt.RichText)
+        if box.exec() != QMessageBox.Yes:
+            return
+        for c in todo:
+            if not self.download(c, ask=False):
+                break
+
+    def delete(self, key):
+        m = self.mgr.spk_models.get(key)
+        if not m or QMessageBox.question(self, "Delete model", f"Delete {m.name} from\n{m.folder}?") != QMessageBox.Yes:
+            return
+        self.mgr.pause_download(key)
+        try:
+            self.mgr.delete(m)
+        except Exception as ex:
+            QMessageBox.warning(self, "Delete model", str(ex))
+        self.refresh()

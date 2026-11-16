@@ -6,7 +6,9 @@ instead of the built-in one (until the program itself brings a newer built-in li
 
 A list can add, update or remove models of the four kinds this program can run (Whisper, SenseVoiceSmall,
 Parakeet, Moonshine), and (version 2.3.0) language models for the AI summary in "summary_models": one GGUF file
-each, of a chat format the program knows (FAMILIES). A model of a new kind or format needs a new program version. Downloads always come from
+each, of a chat format the program knows (FAMILIES), and (version 2.4.0) models for speaker identification in
+"speaker_models" (kind "segmentation" or "speaker-embedding": one .onnx file each, plus licence files). A list
+without "speaker_models" keeps those of the built-in list. A model of a new kind or format needs a new program version. Downloads always come from
 huggingface.co at a fixed revision and every file is checked by SHA-256, so a list file cannot make the
 program fetch anything else."""
 import copy
@@ -19,6 +21,7 @@ from . import APP_ID, VERSION, paths
 
 FORMAT = 2
 KINDS = ("whisper", "sensevoice", "parakeet", "moonshine")
+SPEAKER_KINDS = ("segmentation", "speaker-embedding")  # sherpa-onnx pyannote segmentation / voice models
 LLM_FAMILIES = ("qwen3", "qwen3-instruct", "qwen3.5", "gemma4")  # chat formats in sot.summary.FAMILIES
 LANGS = ("en", "fr", "yue", "zh")
 PRIORITIES = ("Must", "Should", "Could")
@@ -151,6 +154,7 @@ def validate(data):
             if lang not in auto:
                 warn.append(f"automatic: no order for {lang}; the smallest suitable installed model will be used.")
     _validate_summary(out, ids, err)
+    _validate_speakers(out, ids | {m.get("id") for m in out.get("summary_models", []) if isinstance(m, dict)}, err)
     if err:
         raise ListError("\n".join(err))
     return out, warn
@@ -222,6 +226,73 @@ def _validate_summary(out, ids, err):
                     err.append(f"{key}.{k}: {mid} is not in summary_models.")
 
 
+def _validate_speakers(out, ids, err):
+    """Optional (2.4.0): speaker identification models. Same download rules as the speech models."""
+    sm = out.get("speaker_models", [])
+    if not isinstance(sm, list):
+        err.append("speaker_models must be a list.")
+        return
+    kids = set()
+    for i, m in enumerate(sm, 1):
+        where = f"speaker model {i} ({m.get('id', '?')})" if isinstance(m, dict) else f"speaker model {i}"
+        if not isinstance(m, dict):
+            err.append(f"{where}: not an object.")
+            continue
+        mid = m.get("id", "")
+        if not SAFE_ID.match(str(mid)):
+            err.append(f"{where}: id must be lower-case letters, digits, '.', '-' or '_' (it is the folder name).")
+        elif mid in ids or mid in kids:
+            err.append(f"{where}: id is used twice.")
+        kids.add(mid)
+        if not str(m.get("name", "")).strip():
+            err.append(f"{where}: name is missing.")
+        if m.get("kind") not in SPEAKER_KINDS:
+            err.append(f"{where}: kind must be one of {', '.join(SPEAKER_KINDS)}.")
+        if not REPO.match(str(m.get("repo", ""))):
+            err.append(f"{where}: repo must be a Hugging Face 'owner/name'.")
+        if not HEX40.match(str(m.get("revision", ""))):
+            err.append(f"{where}: revision must be the 40-character commit id (run update-model-list to fill it).")
+        if not str(m.get("license", "")).strip():
+            err.append(f"{where}: license is missing.")
+        url = m.get("license_url", "")
+        if url and not str(url).startswith(("https://", "http://")):
+            err.append(f"{where}: license_url must start with https://.")
+        if m.get("offered", "Could") not in PRIORITIES:
+            err.append(f"{where}: offered must be one of {', '.join(PRIORITIES)}.")
+        files = m.get("files")
+        if not isinstance(files, list) or not files:
+            err.append(f"{where}: files list is missing.")
+            continue
+        names, onnx = set(), 0
+        for f in files:
+            fn = str(f.get("name", "")) if isinstance(f, dict) else ""
+            if not SAFE_FILE.match(fn) or ".." in fn:
+                err.append(f"{where}: file name {fn!r} is not allowed (plain names only, no folders).")
+                continue
+            if fn in names:
+                err.append(f"{where}: file {fn} is listed twice.")
+            names.add(fn)
+            onnx += fn.lower().endswith(".onnx")
+            if not isinstance(f.get("size"), int) or f["size"] <= 0:
+                err.append(f"{where}: {fn} has no size (run update-model-list to fill it).")
+            if not HEX64.match(str(f.get("sha256", ""))):
+                err.append(f"{where}: {fn} has no SHA-256 (run update-model-list to fill it).")
+        if onnx != 1:
+            err.append(f"{where}: files must hold exactly one .onnx model file.")
+        m["languages"] = [x for x in m.get("languages", list(LANGS)) if x in LANGS] or list(LANGS)
+        m["size"] = sum(f.get("size", 0) for f in files if isinstance(f, dict) and isinstance(f.get("size"), int))
+        m.setdefault("offered", "Could")
+        m.setdefault("note", "")
+    rec = out.get("speaker_recommended")
+    if rec is not None:
+        if not isinstance(rec, list) or any(mid not in kids for mid in rec):
+            err.append("speaker_recommended must list ids of speaker_models.")
+        else:
+            kinds = {m.get("kind") for m in sm if isinstance(m, dict) and m.get("id") in rec}
+            if kinds != set(SPEAKER_KINDS):
+                err.append("speaker_recommended must name one segmentation model and one speaker-embedding model.")
+
+
 def load():
     """The list in use: the imported list when it is valid and not older than the built-in one."""
     builtin, _ = validate(read(BUILTIN))
@@ -234,6 +305,9 @@ def load():
             info["problem"] = f"The imported model list in {ov} was not used: {ex}"
             return info
         if vtuple(data["list_version"]) >= vtuple(builtin["list_version"]):
+            if "speaker_models" not in data:  # an older list: keep the built-in speaker models (2.4.0)
+                data["speaker_models"] = builtin.get("speaker_models", [])
+                data["speaker_recommended"] = builtin.get("speaker_recommended", [])
             return {"data": data, "source": "imported", "path": ov, "problem": ""}
         info["problem"] = (f"The imported model list ({data['list_version']}) is older than the program's own "
                            f"({builtin['list_version']}), so the program's list is used.")
@@ -251,6 +325,12 @@ def diff(old, new):
     added += [ns_[i]["name"] for i in ns_ if i not in os_]
     removed += [os_[i]["name"] for i in os_ if i not in ns_]
     changed += [ns_[i]["name"] for i in ns_ if i in os_ and ns_[i]["revision"] != os_[i]["revision"]]
+    if "speaker_models" in new:
+        ok_ = {m["id"]: m for m in old.get("speaker_models", [])}
+        nk_ = {m["id"]: m for m in new.get("speaker_models", [])}
+        added += [nk_[i]["name"] for i in nk_ if i not in ok_]
+        removed += [ok_[i]["name"] for i in ok_ if i not in nk_]
+        changed += [nk_[i]["name"] for i in nk_ if i in ok_ and nk_[i]["revision"] != ok_[i]["revision"]]
     return added, removed, changed
 
 
@@ -265,6 +345,9 @@ def import_file(path, current):
     if vtuple(data["list_version"]) < vtuple(builtin["list_version"]):
         raise ListError(f"This list ({data['list_version']}) is older than the one built into the program "
                         f"({builtin['list_version']}).")
+    if "speaker_models" not in data:
+        data["speaker_models"] = builtin.get("speaker_models", [])
+        data["speaker_recommended"] = builtin.get("speaker_recommended", [])
     target = override_path()
     tmp = target + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:

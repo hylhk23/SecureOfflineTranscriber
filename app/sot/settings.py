@@ -128,6 +128,20 @@ DEFAULTS = {
     "summary.keep_loaded": False,
     "summary.background": False,
     "summary.gpu": True,                   # Mac: Metal graphics chip when the model fits; Windows: always the CPU
+    # Speaker identification (version 2.4.0): a step after transcribing; nothing happens until it is started
+    "speakers.auto": False,                # identify speakers automatically when a transcript is complete
+    "speakers.count": 0,                   # 0 = automatic, else 2-10 people (everyone, "me" included)
+    "speakers.threshold": 0.5,             # 0.3-0.9: higher = fewer speakers (voices must differ more)
+    "speakers.channels": "auto",           # auto (use the recorder's channel tag) / split (left me, right others) / mixed
+    "speakers.left_name": "Me",            # name of the left channel (microphone) in a two-channel recording
+    "speakers.use_library": True,          # name speakers whose voices are in the voice library
+    "speakers.strictness": "normal",       # normal / strict: how alike a voice must be to give a name
+    "speakers.min_save_s": 30,             # seconds of speech needed before a voice can be saved
+    "speakers.in_exports": True,           # speaker names in exports and the AI summary
+    "speakers.label_style": "colon",       # colon ("Alice:") / brackets ("[Alice]")
+    "speakers.voice_model": "auto",        # auto or a speaker-embedding model id
+    "speakers.threads": 0,                 # 0 = all cores
+    "speakers.show_panel": True,           # the Speakers panel beside the transcript, when it has speakers
 }
 
 GROUPS = {

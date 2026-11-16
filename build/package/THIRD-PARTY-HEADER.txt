@@ -47,6 +47,15 @@ Parakeet-TDT-0.6B-v3 by NVIDIA, int8 ONNX conversion by the k2-fsa sherpa-onnx p
 Moonshine tiny and base by Useful Sensors, ONNX conversion by k2-fsa - MIT licence.
 Silero VAD (included inside faster-whisper) - MIT licence. Copyright (c) Silero Team.
 
+SPEAKER IDENTIFICATION MODELS (NOT INCLUDED; DOWNLOADED BY THE USER FROM HUGGING FACE)
+--------------------------------------------------------------------------------------
+pyannote segmentation 3.0 by CNRS / pyannote - MIT licence. Copyright (c) 2022 CNRS.
+  ONNX int8 conversion by the k2-fsa sherpa-onnx project
+  (https://huggingface.co/csukuangfj/sherpa-onnx-pyannote-segmentation-3-0).
+3D-Speaker CAM++ voice models (English and Chinese; English VoxCeleb) by the Speech Lab of
+  Alibaba's Institute for Intelligent Computing - Apache License 2.0. ONNX files from the
+  k2-fsa sherpa-onnx project (https://huggingface.co/csukuangfj/speaker-embedding-models).
+
 WORD DATA FOR ENGLISH SPELLING (app\data\spelling.json)
 ------------------------------------------------------------
 The spelling tables were made from the English Speller Database (ESDB, previously

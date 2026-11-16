@@ -1,9 +1,12 @@
 """Transcript tab: editable, one block per paragraph/segment, clickable times, amber 'check' lines,
-and proofreading: the sentence being played is highlighted and followed (version 2.1.2)."""
+and proofreading: the sentence being played is highlighted and followed (version 2.1.2).
+Version 2.4.0: a paragraph can start with its speaker (marker shape, name, "(?)" when unsure), drawn as a link
+"s:<speaker id>" after the time link; both are left out when the text is read back, so editing never mixes them
+into the transcript. Names come from the window (speaker_names); the label is redrawn, never typed over."""
 import re
 import time
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import (QColor, QPalette, QTextBlockFormat, QTextBlockUserData, QTextCharFormat, QTextCursor,
                            QTextFormat)
 from PySide6.QtWidgets import QTextEdit
@@ -16,15 +19,18 @@ PREFIX = re.compile(r"^\s*\[\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?\]\s*")
 class BlockData(QTextBlockUserData):
     """Times of a block, plus where each sentence (segment) sits in its text while the text is unedited."""
 
-    def __init__(self, start, end, lang="", flag="", subs=None, text=""):
+    def __init__(self, start, end, lang="", flag="", subs=None, text="", spk=None, spk_unsure=False):
         super().__init__()
         self.start, self.end, self.lang, self.flag = start, end, lang, flag
         self.subs = subs or []
         self.text = text
+        self.spk, self.spk_unsure = spk, bool(spk_unsure)
 
 
 class TranscriptEdit(QTextEdit):
     time_clicked = Signal(float)
+    speaker_clicked = Signal(object, QPoint)   # (block, global position): the window shows the speaker menu
+    context_hook = None                        # window function adding speaker items to the right-click menu
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -36,6 +42,9 @@ class TranscriptEdit(QTextEdit):
         self._manual = 0.0      # last time the user scrolled or typed: following waits a moment
         self._hl = None         # (block number, sentence index) highlighted now
         self._cache = None      # sentences(), rebuilt after any change to the text
+        self.speaker_names = {}  # speaker id -> name (2.4.0)
+        self.speaker_order = []  # speaker ids in the order their markers were given
+        self.label_style = "colon"
         self.verticalScrollBar().actionTriggered.connect(self._user_scrolled)
         self.document().contentsChanged.connect(self._invalidate)
 
@@ -48,7 +57,129 @@ class TranscriptEdit(QTextEdit):
     # ------------------------------------------------------------------ content
     def _data(self, b):
         return BlockData(b["start"], b["end"], b.get("lang", ""), b.get("flag", ""), b.get("subs"),
-                         b.get("orig_text", b["text"]))
+                         b.get("orig_text", b["text"]), b.get("spk"), b.get("spk_unsure"))
+
+    # ------------------------------------------------------------------ speaker labels (2.4.0)
+    def _dark(self):
+        return self.palette().color(QPalette.Base).lightness() < 128
+
+    def marker_of(self, spk):
+        from ..speakers import marker
+        if spk not in self.speaker_order:
+            self.speaker_order.append(spk)
+        shape, light, dark = marker(self.speaker_order.index(spk))
+        return shape, (dark if self._dark() else light)
+
+    def _insert_speaker(self, cur, spk, unsure):
+        if not spk:
+            return
+        name = self.speaker_names.get(spk) or spk
+        shape, colour = self.marker_of(spk)
+        href = f"s:{spk}"
+        mf = QTextCharFormat()
+        mf.setAnchor(True)
+        mf.setAnchorHref(href)
+        mf.setForeground(QColor(colour))
+        mf.setToolTip("Speaker: click to rename or change (Edit > Rename Speaker, Alt+1 to Alt+9)")
+        cur.insertText(shape + " ", mf)
+        nf = QTextCharFormat(mf)
+        nf.setForeground(self.palette().color(QPalette.Text))
+        nf.setFontWeight(700)
+        q = " (?)" if unsure else ""
+        cur.insertText(f"[{name}]{q}" if self.label_style == "brackets" else f"{name}{q}:", nf)
+        cur.insertText(" ", QTextCharFormat())
+
+    def body_start(self, block):
+        """Characters at the start of a block that are the time and speaker links (and the spaces after them)."""
+        it = block.begin()
+        pos = 0
+        while not it.atEnd():
+            frag = it.fragment()
+            if not frag.isValid():
+                break
+            fmt = frag.charFormat()
+            text = frag.text()
+            if fmt.isAnchor() and fmt.anchorHref()[:2] in ("t:", "s:"):
+                pos = frag.position() + frag.length() - block.position()
+            elif not text.strip():
+                pos = frag.position() + frag.length() - block.position()
+            else:
+                # a plain fragment that starts with spaces: skip them
+                pos = frag.position() - block.position() + (len(text) - len(text.lstrip()))
+                break
+            it += 1
+        if pos == 0:  # no links (pasted or typed text): fall back to the time pattern
+            m = PREFIX.match(block.text())
+            return m.end() if m else 0
+        return pos
+
+    def body_text(self, block):
+        return block.text()[self.body_start(block):]
+
+    def _speaker_range(self, block):
+        """(start, end) document positions of a block's speaker label and the space after it; with no label, an
+        empty range where one goes (after the time and its space). Neighbouring plain text can share a fragment
+        with that space, so positions are counted in characters, not fragments."""
+        base = block.position()
+        text = block.text()
+        time_end, a, e = 0, None, None
+        it = block.begin()
+        while not it.atEnd():
+            frag = it.fragment()
+            fmt = frag.charFormat()
+            href = fmt.anchorHref() if fmt.isAnchor() else ""
+            r0, r1 = frag.position() - base, frag.position() - base + frag.length()
+            if href.startswith("t:"):
+                time_end = r1
+            elif href.startswith("s:"):
+                a = r0 if a is None else a
+                e = r1
+            elif text[r0:r1].strip():
+                break
+            it += 1
+        spaces = lambda i: len(text[i:]) - len(text[i:].lstrip(" "))
+        if a is None:
+            ins = time_end + spaces(time_end)
+            return base + ins, base + ins
+        return base + a, base + e + spaces(e)
+
+    def set_block_speaker(self, block, spk, unsure=False):
+        """Give one paragraph a speaker (or none) and redraw its label."""
+        d = block.userData()
+        if not isinstance(d, BlockData):
+            return
+        d.spk, d.spk_unsure = spk, bool(unsure)
+        a, b = self._speaker_range(block)
+        cur = QTextCursor(self.document())
+        cur.setPosition(a)
+        cur.setPosition(b, QTextCursor.KeepAnchor)
+        cur.removeSelectedText()
+        self._insert_speaker(cur, spk, unsure)
+        self._cache = None
+
+    def refresh_labels(self):
+        """Redraw every speaker label (after a rename, merge or theme change). Clears Undo."""
+        modified = self.document().isModified()
+        self.document().setUndoRedoEnabled(False)
+        block = self.document().begin()
+        while block.isValid():
+            d = block.userData()
+            if isinstance(d, BlockData):
+                self.set_block_speaker(block, d.spk, d.spk_unsure)
+            block = block.next()
+        self.document().setUndoRedoEnabled(True)
+        self.document().setModified(modified)
+        self._cache = None
+
+    def blocks_with_speaker(self, spk):
+        out = []
+        block = self.document().begin()
+        while block.isValid():
+            d = block.userData()
+            if isinstance(d, BlockData) and d.spk == spk:
+                out.append(block)
+            block = block.next()
+        return out
 
     def set_blocks(self, blocks, keep_modified=False):
         self.blockSignals(True)
@@ -67,6 +198,7 @@ class TranscriptEdit(QTextEdit):
                 bf.setBackground(amber)
             cur.setBlockFormat(bf)
             self._insert_time(cur, b["start"])
+            self._insert_speaker(cur, b.get("spk"), b.get("spk_unsure"))
             cur.insertText(b["text"], QTextCharFormat())
             cur.block().setUserData(self._data(b))
         self._cache = None
@@ -109,11 +241,14 @@ class TranscriptEdit(QTextEdit):
         out = []
         block = self.document().begin()
         while block.isValid():
-            text = PREFIX.sub("", block.text()).strip()
             data = block.userData()
+            text = (self.body_text(block) if isinstance(data, BlockData) else PREFIX.sub("", block.text())).strip()
             if isinstance(data, BlockData):
-                out.append({"start": data.start, "end": data.end, "text": text, "lang": data.lang,
-                            "flag": data.flag})
+                b = {"start": data.start, "end": data.end, "text": text, "lang": data.lang, "flag": data.flag}
+                if data.spk:
+                    b["spk"] = data.spk
+                    b["spk_unsure"] = data.spk_unsure
+                out.append(b)
             elif text and out:
                 out[-1]["text"] = (out[-1]["text"] + " " + text).strip()
             block = block.next()
@@ -121,8 +256,7 @@ class TranscriptEdit(QTextEdit):
 
     # ------------------------------------------------------------------ sentences (proofreading)
     def _prefix_len(self, block):
-        m = PREFIX.match(block.text())
-        return m.end() if m else 0
+        return self.body_start(block)
 
     def sentences(self):
         """Every sentence in order: start, end, flag, block, and its character range when the text is unedited."""
@@ -255,6 +389,9 @@ class TranscriptEdit(QTextEdit):
             return
         if href.startswith("t:"):
             self.time_clicked.emit(float(href[2:]))
+        elif href.startswith("s:"):
+            block = self.cursorForPosition(e.position().toPoint()).block()
+            self.speaker_clicked.emit(block, e.globalPosition().toPoint())
         elif e.modifiers() & Qt.ControlModifier:  # Ctrl+click: play the sentence under the mouse
             s = self.sentence_at_cursor(self.cursorForPosition(e.position().toPoint()))
             if s:
@@ -262,8 +399,14 @@ class TranscriptEdit(QTextEdit):
 
     def mouseMoveEvent(self, e):
         href = self.anchorAt(e.position().toPoint())
-        self.viewport().setCursor(Qt.PointingHandCursor if href.startswith("t:") else Qt.IBeamCursor)
+        self.viewport().setCursor(Qt.PointingHandCursor if href[:2] in ("t:", "s:") else Qt.IBeamCursor)
         super().mouseMoveEvent(e)
+
+    def contextMenuEvent(self, e):
+        menu = self.createStandardContextMenu(e.pos())
+        if self.context_hook:
+            self.context_hook(menu, self.cursorForPosition(e.pos()).block())
+        menu.exec(e.globalPos())
 
     def wheelEvent(self, e):
         self._manual = time.monotonic()

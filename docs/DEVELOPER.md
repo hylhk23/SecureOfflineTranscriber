@@ -4,7 +4,7 @@ End-user download and installation: see the main [README](../README.md). User he
 
 ## About the code
 
-Secure Offline Transcriber is an offline speech-to-text program for Windows 10 and 11 (64-bit) and for macOS 14 or later on Apple silicon, written in Python with Qt (PySide6). It transcribes recorded audio and video files in English, French, Cantonese and Mandarin with Whisper (through faster-whisper / CTranslate2) and with SenseVoiceSmall, Parakeet and Moonshine (through sherpa-onnx / ONNX Runtime). FFmpeg (`ffmpeg.exe`) reads every audio and video format. From 2.3.0 an optional AI summary is written by a small language model through llama.cpp (called with ctypes), and from 2.3.1 English transcripts can follow American, British, Canadian, Australian or Hong Kong spelling.
+Secure Offline Transcriber is an offline speech-to-text program for Windows 10 and 11 (64-bit) and for macOS 14 or later on Apple silicon, written in Python with Qt (PySide6). It transcribes recorded audio and video files in English, French, Cantonese and Mandarin with Whisper (through faster-whisper / CTranslate2) and with SenseVoiceSmall, Parakeet and Moonshine (through sherpa-onnx / ONNX Runtime). FFmpeg (`ffmpeg.exe`) reads every audio and video format. From 2.3.0 an optional AI summary is written by a small language model through llama.cpp (called with ctypes), from 2.3.1 English transcripts can follow American, British, Canadian, Australian or Hong Kong spelling, and from 2.4.0 speakers can be identified after transcribing (sherpa-onnx speaker diarization) and named from a voice library kept on the computer.
 
 ---
 
@@ -38,6 +38,9 @@ Command-line switches of `app\OfflineTranscriber.py`: `--debug` (log to the cons
 | `app/sot/spelling.py`, `app/data/spelling.json` | English spelling by region: pure converter and its word tables (made by `build/tools/make-spelling-data.py` from the English Speller Database) |
 | `app/sot/llm.py` | llama.cpp through ctypes: loading (CPU, or the Metal GPU on a Mac when the model fits), tokens, generation |
 | `app/sot/summary.py`, `app/sot/summaryworker.py` | AI summary: prompts, long transcripts in parts, output clean-up; the summary process |
+| `app/sot/speakers.py` | Speaker identification (2.4.0), pure: segments to speakers by overlap, two-channel rule, block linking, voice library matching, names and talk time |
+| `app/sot/diarize.py` | Speaker identification in the worker process: sherpa-onnx `OfflineSpeakerDiarization` (pyannote segmentation 3.0 + CAM++ voice model) and one averaged voiceprint per speaker |
+| `app/sot/voicelib.py`, `app/sot/ui/speakerui.py` | The voice library file (`data/voices.json`, checked field by field, atomic writes); the Identify Speakers, Speakers panel, consent and Voice Library windows |
 | `app/sot/exporters.py` | The eight export formats |
 | `app/sot/modellist.py`, `app/models.json` | The model list: what can be downloaded, the recommended set and the Automatic order |
 | `app/sot/modelmgr.py` | Model manager: scanning, downloads with resume and SHA-256 checks, other locations, model packs |
@@ -45,7 +48,7 @@ Command-line switches of `app\OfflineTranscriber.py`: `--debug` (log to the cons
 | `app/sot/system.py` | Environment and privacy checks, keep-awake, "Open with" registration, country or region, job journal |
 | `app/sot/ui/` | Main window, transcript editor (proofreading), player, Options dialog, names dialog, small dialogs |
 | `app/docs/HELP.html` | User help (every menu item and setting) |
-| `tests/` | Headless tests (no model needed): `test_core.py`, `test_spelling.py`, `test_mac.py` |
+| `tests/` | Headless tests (no model needed): `test_core.py`, `test_spelling.py`, `test_mac.py`, `test_speakers.py` (its real-model tests run when `SOT_TEST_SPK` names a folder with the speaker models and the published sherpa-onnx samples) |
 | `build/` | Portable build kit and the model-list tool |
 
 ## 3. Tests

@@ -3,7 +3,9 @@
 The worker stays alive between files so the loaded model is kept.
 Main -> worker: ("job", dict) / ("quit",).   Cancel: a shared Event.
 Worker -> main: ("stage", text), ("progress", done_s, total_s), ("model", info), ("segment", seg),
-                ("raw", line), ("block_gain", db), ("done", stats), ("error", message)."""
+                ("raw", line), ("block_gain", db), ("done", stats), ("error", message).
+A job with "type": "speakers" (version 2.4.0) identifies speakers instead (sot.diarize) and ends with
+("speakers", result) before ("done", stats)."""
 import logging
 import multiprocessing as mp
 import os
@@ -37,6 +39,13 @@ def worker_main(cmd_q, evt_q, cancel, data_folder):
         job = msg[1]
         cancel.clear()
         try:
+            if job.get("type") == "speakers":
+                from . import diarize
+                engines.clear()  # free the speech model's memory first
+                result = diarize.run(job, emit, cancel)
+                emit("speakers", result)
+                emit("done", {"speakers": True, "cancelled": bool(result.get("cancelled"))})
+                continue
             stats = run_job(job, engines, emit, cancel)
             emit("done", stats)
         except Exception as ex:
@@ -221,6 +230,13 @@ class Worker:
             except queue.Empty:
                 break
         return out
+
+    def kill(self):
+        """End the worker at once (Stop during speaker identification); the next job starts a new one."""
+        if self.proc and self.proc.is_alive():
+            self.proc.terminate()
+            self.proc.join(3)
+        self.proc = None
 
     def alive(self):
         return bool(self.proc and self.proc.is_alive())

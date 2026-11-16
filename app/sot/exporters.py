@@ -142,7 +142,8 @@ def build_cues(blocks, chars=42, lines=2, max_dur=7.0, min_dur=1.0):
             for sp in sub:
                 sd = pdur * len(sp) / max(1, len(p))
                 end = min(b["end"], t + max(sd, min_dur))
-                cues.append({"start": t, "end": max(end, t + 0.3), "lines": wrap_lines(sp, chars)[:lines + 1]})
+                cues.append({"start": t, "end": max(end, t + 0.3), "lines": wrap_lines(sp, chars)[:lines + 1],
+                             "spk": b.get("spk")})
                 t += sd
     for i in range(len(cues) - 1):  # no overlaps
         if cues[i]["end"] > cues[i + 1]["start"]:
@@ -160,18 +161,33 @@ def _split_even(text, n):
 
 
 # ------------------------------------------------------------------ writers
+def speaker_name(b, meta, settings):
+    """The speaker's name for a block (2.4.0), or "" when there is none or names are off in exports."""
+    if not b.get("spk") or not settings.get("speakers.in_exports"):
+        return ""
+    return (meta.get("speakers") or {}).get(b["spk"], "")
+
+
+def speaker_label(b, meta, settings):
+    name = speaker_name(b, meta, settings)
+    if not name:
+        return ""
+    return f"[{name}] " if settings.get("speakers.label_style") == "brackets" else f"{name}: "
+
+
 def write(fmt, path, blocks, meta, settings):
     enc = settings.get("output.encoding")
     style = settings.get("output.time_format")
     times = settings.get("output.times")
+    lab = lambda b: speaker_label(b, meta, settings)
     if fmt == "txt_times":
         out = header_lines(meta, settings.get("output.stats_header")) + [""]
         for b in blocks:
-            out.append(f"[{fmt_time(b['start'], style)}] {b['text']}" if times != "none" else b["text"])
+            out.append(f"[{fmt_time(b['start'], style)}] {lab(b)}{b['text']}" if times != "none" else lab(b) + b["text"])
             out.append("")
         _write_text(path, "\n".join(out), enc)
     elif fmt == "txt_plain":
-        _write_text(path, "\n\n".join(b["text"] for b in blocks) + "\n", enc)
+        _write_text(path, "\n\n".join(lab(b) + b["text"] for b in blocks) + "\n", enc)
     elif fmt in ("srt", "vtt"):
         cues = build_cues(blocks, int(settings.get("output.sub_chars")), int(settings.get("output.sub_lines")),
                           float(settings.get("output.sub_max")), float(settings.get("output.sub_min")))
@@ -181,32 +197,44 @@ def write(fmt, path, blocks, meta, settings):
             if fmt == "srt":
                 out.append(str(i))
             out.append(f"{srt_time(c['start'], sep)} --> {srt_time(c['end'], sep)}")
-            out.extend(c["lines"])
+            name = speaker_name(c, meta, settings)
+            lines_ = list(c["lines"])
+            if name and lines_:  # WebVTT has its own voice tag; SRT gets "Name: " on the cue's first line
+                lines_[0] = (f"<v {name}>" if fmt == "vtt" else speaker_label(c, meta, settings)) + lines_[0]
+            out.extend(lines_)
             out.append("")
         _write_text(path, "\n".join(out), "utf-8")
     elif fmt == "md":
         out = [f"# Transcript: {meta.get('file', '')}", ""]
         out += [f"- {line}" for line in header_lines(meta, settings.get("output.stats_header"))[1:]] + [""]
         for b in blocks:
-            out.append(f"**[{fmt_time(b['start'], style)}]** {b['text']}" if times != "none" else b["text"])
+            name = speaker_name(b, meta, settings)
+            who = f"**{lab(b).strip()}** " if name else ""
+            out.append(f"**[{fmt_time(b['start'], style)}]** {who}{b['text']}" if times != "none" else who + b["text"])
             out.append("")
         _write_text(path, "\n".join(out), "utf-8")
     elif fmt == "json":
         data = {"app": "Secure Offline Transcriber", "version": meta.get("version"), "file": meta.get("file"),
                 "media_path": meta.get("media_path"), "duration": meta.get("duration"),
                 "language": meta.get("language"), "model": meta.get("model"), "statistics": meta.get("stats", {}),
-                "segments": [{"start": round(b["start"], 3), "end": round(b["end"], 3), "text": b["text"],
-                              "language": b.get("lang", meta.get("language")), "check": b.get("flag") == "check"}
+                "segments": [dict({"start": round(b["start"], 3), "end": round(b["end"], 3), "text": b["text"],
+                                   "language": b.get("lang", meta.get("language")), "check": b.get("flag") == "check"},
+                                  **({"speaker": speaker_name(b, meta, settings)} if speaker_name(b, meta, settings)
+                                     else {}))
                              for b in blocks]}
+        if any(speaker_name(b, meta, settings) for b in blocks):  # names only; never voiceprints
+            data["speakers"] = [{"id": k, "name": v} for k, v in (meta.get("speakers") or {}).items()
+                                if any(b.get("spk") == k for b in blocks)]
         with open(path, "w", encoding="utf-8", newline="\r\n") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     elif fmt == "csv":
         buf = io.StringIO()
         w = csv.writer(buf, lineterminator="\r\n")
-        w.writerow(["index", "start", "end", "duration", "text"])
+        named = any(speaker_name(b, meta, settings) for b in blocks)
+        w.writerow(["index", "start", "end", "duration", "text"] + (["speaker"] if named else []))
         for i, b in enumerate(blocks, 1):
             w.writerow([i, fmt_time(b["start"], "hh:mm:ss.mmm"), fmt_time(b["end"], "hh:mm:ss.mmm"),
-                        f"{b['end'] - b['start']:.2f}", b["text"]])
+                        f"{b['end'] - b['start']:.2f}", b["text"]] + ([speaker_name(b, meta, settings)] if named else []))
         with open(path, "w", encoding="utf-8-sig", newline="") as f:  # BOM so Excel shows Chinese
             f.write(buf.getvalue())
     elif fmt == "docx":
@@ -243,6 +271,9 @@ def write_docx(path, blocks, meta, settings):
         if settings.get("output.times") != "none":
             r = p.add_run(f"[{fmt_time(b['start'], style)}] ")
             r.bold = True
+        who = speaker_label(b, meta, settings)
+        if who:
+            p.add_run(who).bold = True
         p.add_run(b["text"])
         p.paragraph_format.space_after = Pt(6)
     doc.save(path)

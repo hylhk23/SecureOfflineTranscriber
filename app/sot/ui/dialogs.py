@@ -26,6 +26,8 @@ SHORTCUTS = [
     ("Transcribe", "Play / Pause", "F9 (Space outside the text)"),
     ("Transcribe", "Replay Sentence", "F6"), ("Transcribe", "Previous / Next Unsure Line", "F7 / F8"),
     ("Transcribe", "Skip Back / Forward 5 s", "Ctrl+Left / Ctrl+Right"),
+    ("Transcribe", "Write AI Summary", "Ctrl+M"), ("Transcribe", "Identify Speakers", "Ctrl+D"),
+    ("Transcript", "Give the paragraph to speaker 1-9", "Alt+1 ... Alt+9"),
     ("Transcript", "Play the sentence under the mouse", "Ctrl+click"),
     ("Options", "All Settings", "Ctrl+,"), ("Help", "Help Contents", "F1"), ("Help", "Keyboard Shortcuts", "Ctrl+/"),
 ]

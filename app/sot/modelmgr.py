@@ -128,8 +128,10 @@ class ModelManager:
         self.listdata = self.list_info["data"]
         self.catalog = self.listdata["models"]
         self.llm_catalog = self.listdata.get("summary_models", [])  # AI summary (2.3.0); never used to transcribe
-        self.by_id = {e["id"]: e for e in self.catalog + self.llm_catalog}
+        self.spk_catalog = self.listdata.get("speaker_models", [])  # speaker identification (2.4.0)
+        self.by_id = {e["id"]: e for e in self.catalog + self.llm_catalog + self.spk_catalog}
         self.llm_models = {}
+        self.spk_models = {}
 
     def automatic_order(self, language):
         """The model order Automatic tries: your own order from Options, else the model list's."""
@@ -169,8 +171,9 @@ class ModelManager:
             return "Installed", entry["size"]
         if partial:
             return "Paused", done
-        if entry["kind"] == "llm":
-            if any(n.lower().endswith(".gguf") and os.path.isfile(os.path.join(folder, n)) for n in os.listdir(folder)) \
+        if entry["kind"] in ("llm", "segmentation", "speaker-embedding"):
+            ext = ".gguf" if entry["kind"] == "llm" else ".onnx"
+            if any(n.lower().endswith(ext) and os.path.isfile(os.path.join(folder, n)) for n in os.listdir(folder)) \
                     and man and man.get("revision") != entry["revision"]:
                 return "Update available", done  # the file of an earlier revision: still usable
         elif detect_type(folder)[0] == entry["kind"]:
@@ -323,6 +326,51 @@ class ModelManager:
         ids = rec.get("at_or_above" if total >= float(rec.get("ram_gb", 12)) else "below") or []
         return [i for i in ids if i in self.by_id]
 
+    # ---------------------------------------------------------------- speaker identification models (2.4.0)
+    def scan_spk(self):
+        models = {}
+        for e in self.spk_catalog:
+            status, done = self._status_of(e)
+            st = self.downloads.get(e["id"])
+            if st and st[0].is_alive():
+                status = "Downloading"
+            m = ModelInfo(e["id"], e["name"], e["kind"], self.folder_for(e), e.get("languages", []), "download",
+                          status, e["size"], e)
+            m.progress = done / e["size"] if e["size"] else 0
+            models[m.key] = m
+        self.spk_models = models
+        return models
+
+    def spk_file(self, m):
+        """Path of the model's .onnx file."""
+        if m.entry:
+            for f in m.entry["files"]:
+                p = os.path.join(m.folder, f["name"])
+                if f["name"].lower().endswith(".onnx") and os.path.isfile(p):
+                    return p
+        try:
+            onnx = [n for n in os.listdir(m.folder) if n.lower().endswith(".onnx")]
+        except OSError:
+            onnx = []
+        return os.path.join(m.folder, onnx[0]) if len(onnx) == 1 else None
+
+    def spk_choice(self, kind, wanted="auto"):
+        """The installed segmentation or voice model to use: the chosen one, else the recommended, else the first."""
+        if not self.spk_models:
+            self.scan_spk()
+        inst = [m for m in self.spk_models.values() if m.kind == kind and m.installed]
+        if wanted and wanted != "auto":
+            return next((m for m in inst if m.key == wanted), None)
+        rec = self.listdata.get("speaker_recommended") or []
+        for cid in rec:
+            m = next((x for x in inst if x.key == cid), None)
+            if m:
+                return m
+        return inst[0] if inst else None
+
+    def recommended_spk(self):
+        return [i for i in (self.listdata.get("speaker_recommended") or []) if i in self.by_id]
+
     # ---------------------------------------------------------------- choosing a model
     def find(self, key):
         return self.models.get(key)
@@ -469,6 +517,8 @@ class ModelManager:
             shutil.rmtree(m.folder)
         if m.kind == "llm":
             self.scan_llm()
+        elif m.kind in ("segmentation", "speaker-embedding"):
+            self.scan_spk()
 
     # ---------------------------------------------------------------- locations and folders
     def add_location(self, folder):

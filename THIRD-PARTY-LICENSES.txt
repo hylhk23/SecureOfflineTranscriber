@@ -67,4 +67,10 @@ AI summary models are NOT included either. They are downloaded by the user from 
 Qwen3-4B-Instruct-2507, Qwen3.5-2B and Qwen3.5-4B by the Qwen team, Alibaba Cloud, and Gemma 4 E2B and E4B by
 Google (all Apache-2.0; GGUF files as published by Qwen or converted by Unsloth).
 
+Speaker identification models (version 2.4.0) are NOT included either. They are downloaded by the user from
+Hugging Face: pyannote segmentation 3.0 by CNRS / pyannote (MIT; ONNX conversion by the sherpa-onnx project,
+huggingface.co/csukuangfj/sherpa-onnx-pyannote-segmentation-3-0) and the 3D-Speaker CAM++ voice models by the
+Speech Lab of Alibaba's Institute for Intelligent Computing (Apache-2.0; ONNX files from
+huggingface.co/csukuangfj/speaker-embedding-models). They run with sherpa-onnx, which is included (Apache-2.0).
+
 Screenshots on the project page use a sample from the LibriSpeech ASR corpus (V. Panayotov et al., CC BY 4.0).
